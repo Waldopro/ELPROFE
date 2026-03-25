@@ -94,33 +94,42 @@ if ($action === 'procesar_proforma') {
             $stmtDetalle->execute([$proforma_id, $p['presentacion_id'], $p['cantidad'], $p['precio_unitario_usd'], $p['subtotal_usd']]);
         }
         
-        // 5. Si es de Contado, registrar el Abono total y Movimiento de Caja
+        // 5. Si es de Contado, registrar Abonos Fragmentados Equivalentes
         if ($tipo === 'CONTADO') {
+            $pagos = json_decode($_POST['pagos'] ?? '[]', true);
+            if (empty($pagos)) throw new Exception("Debe estipular al menos un método de pago en ventas de contado.");
+            
             $stmtAbono = $pdo->prepare("INSERT INTO abonos (proforma_id, tasa_bs_usd, monto_total_usd, nota) VALUES (?, ?, ?, ?)");
-            $stmtAbono->execute([$proforma_id, $tasa, $totalUSD, 'Pago total Proforma']);
+            $stmtAbono->execute([$proforma_id, $tasa, $totalUSD, 'Pago Directo Contado']);
             $abono_id = $pdo->lastInsertId();
             
-            // Asigna a un método de pago. Por simplicidad, se asigna al métod de pago seleccionado o el ID 1.
-            $stmtMet = $pdo->prepare("SELECT moneda_base FROM metodos_pago WHERE id = ?");
-            $stmtMet->execute([$metodoPagoId]);
-            $met_base = $stmtMet->fetchColumn() ?: 'USD';
-            
-            $m_entregado_bs = ($met_base === 'VES') ? ($totalUSD * $tasa) : 0;
-            $m_entregado_usd = ($met_base === 'USD') ? $totalUSD : 0;
-            
-            // Pagos Detalles
-            $stmtPDetalle = $pdo->prepare("INSERT INTO pagos_detalles (abono_id, metodo_pago_id, monto_entregado_bs, monto_entregado_usd, monto_equivalente_usd) VALUES (?, ?, ?, ?, ?)");
-            $stmtPDetalle->execute([$abono_id, $metodoPagoId, $m_entregado_bs, $m_entregado_usd, $totalUSD]);
-            
-            // Movimiento Caja
-            // IMPORTANTE: Un sistema robusto asocia el mov a la caja abierta de ese cajero.
-            // Buscamos sesion abierta del cajero
+            // Buscamos sesion de caja
             $stmtSesion = $pdo->prepare("SELECT id FROM sesiones_caja WHERE usuario_id = ? AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1");
             $stmtSesion->execute([$_SESSION['user_id']]);
             $ses_id = $stmtSesion->fetchColumn() ?: null;
             
+            $stmtPDetalle = $pdo->prepare("INSERT INTO pagos_detalles (abono_id, metodo_pago_id, monto_entregado_bs, monto_entregado_usd, monto_equivalente_usd) VALUES (?, ?, ?, ?, ?)");
             $stmtCaja = $pdo->prepare("INSERT INTO movimientos_caja (sesion_caja_id, metodo_pago_id, tipo_movimiento, monto_bs, monto_usd, referencia_id, referencia_tabla) VALUES (?, ?, 'ENTRADA', ?, ?, ?, 'abonos')");
-            $stmtCaja->execute([$ses_id, $metodoPagoId, $m_entregado_bs, $m_entregado_usd, $abono_id]);
+            
+            $suma_pagada_usd = 0;
+            
+            foreach ($pagos as $pg) {
+                $m_usd = floatval($pg['monto_usd'] ?? 0);
+                $m_bs = floatval($pg['monto_bs'] ?? 0);
+                $equiv_usd = round($m_usd + ($m_bs / $tasa), 2);
+                
+                if ($equiv_usd > 0) {
+                    $stmtPDetalle->execute([$abono_id, $pg['id'], $m_bs, $m_usd, $equiv_usd]);
+                    $stmtCaja->execute([$ses_id, $pg['id'], $m_bs, $m_usd, $abono_id]);
+                    $suma_pagada_usd += $equiv_usd;
+                }
+            }
+            
+            // Tolerancia de 5 centavos por redondeos matematicos de conversión de tasa baja. 
+            // Vueltos en contra son tolerados si sobrepasa. 
+            if ($suma_pagada_usd < ($totalUSD - 0.05)) {
+                throw new Exception("El pago ingresado (\$" . $suma_pagada_usd . ") no cubre la factura (\$" . $totalUSD . ")");
+            }
         }
         
         $pdo->commit();

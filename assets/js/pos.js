@@ -147,17 +147,57 @@ const POS = (() => {
             }
         });
         
-        // Boton Cobrar (Contado)
-        $('#btn-cobrar').click(function() {
-            procesarVenta('CONTADO');
+        // Modal Cobro Mixto Logic
+        let totalUSDRequerido = 0;
+        
+        $('#modalPago').on('show.bs.modal', function() {
+            if(cart.length === 0) {
+                Swal.fire('Atención', 'El carrito está vacío', 'warning'); return false;
+            }
+            totalUSDRequerido = cart.reduce((acc, p) => acc + (p.precio * p.cantidad), 0);
+            $('#modal-pagar-usd').text('$' + totalUSDRequerido.toFixed(2));
+            $('#modal-resta-usd').text('$' + totalUSDRequerido.toFixed(2));
+            $('.input-monto-usd, .input-monto-bs').val('');
+            $('#btn-procesar-mixto').prop('disabled', true);
+            setTimeout(() => { $('.input-monto-usd').first().focus(); }, 500);
         });
-        // Boton Fiado
-        $('#btn-fiado').click(function() {
-            procesarVenta('FIADO');
+
+        // Recalcular saldo adeudado dinámicamente
+        $('.input-monto-usd, .input-monto-bs').on('keyup change', function() {
+            let pagadoUSD = 0;
+            $('.metodo-row').each(function() {
+                let u = parseFloat($(this).find('.input-monto-usd').val()) || 0;
+                let b = parseFloat($(this).find('.input-monto-bs').val()) || 0;
+                pagadoUSD += u + (b / tasa);
+            });
+            
+            let resta = totalUSDRequerido - pagadoUSD;
+            if(resta < 0) resta = 0; // Mostrar vuelto positivo si pasa, pero cobró completo
+            
+            $('#modal-resta-usd').text('$' + resta.toFixed(2));
+            $('#modal-resta-usd').toggleClass('text-success', resta <= 0.05).toggleClass('text-danger', resta > 0.05);
+            
+            // Tolerancia de 5 centavos para activar botón
+            $('#btn-procesar-mixto').prop('disabled', resta > 0.05);
         });
-        $('#btn-anular').click(function() {
-            cart = []; renderCart(); elements.buscador.focus();
+
+        $('#btn-procesar-mixto').click(function() {
+            let pagosMultiples = [];
+            $('.metodo-row').each(function() {
+                let id = parseInt($(this).data('id'));
+                let u = parseFloat($(this).find('.input-monto-usd').val()) || 0;
+                let b = parseFloat($(this).find('.input-monto-bs').val()) || 0;
+                if(u > 0 || b > 0) {
+                    pagosMultiples.push({id: id, monto_usd: u, monto_bs: b});
+                }
+            });
+            $('#modalPago').modal('hide');
+            procesarVenta('CONTADO', pagosMultiples);
         });
+
+        // Boton Fiado Directo
+        $('#btn-fiado').click(function() { procesarVenta('FIADO'); });
+        $('#btn-anular').click(function() { cart = []; renderCart(); elements.buscador.focus(); });
         
         // Buscar Cliente al salir del input cedula
         elements.clienteCedula.on('blur', function() {
@@ -180,7 +220,7 @@ const POS = (() => {
         });
     }
 
-    function procesarVenta(tipo) {
+    function procesarVenta(tipo, arrayPagos = []) {
         if(cart.length === 0) {
             Swal.fire('Atención', 'El carrito está vacío', 'warning'); return;
         }
@@ -189,12 +229,13 @@ const POS = (() => {
             action: 'procesar_proforma',
             tipo: tipo,
             cliente_id: currentClienteId,
-            productos: JSON.stringify(cart)
+            productos: JSON.stringify(cart),
+            pagos: JSON.stringify(arrayPagos)
         }, function(res) {
             if(res.success) {
                 Swal.fire({
-                    title: '¡Procesado!',
-                    text: 'Se ha completado la Proforma/Venta con éxito',
+                    title: '¡Operación Exitosa!',
+                    text: 'Proforma registrada correctamente. ID #' + res.proforma_id,
                     icon: 'success',
                     timer: 2000,
                     showConfirmButton: false
@@ -207,7 +248,7 @@ const POS = (() => {
                     elements.buscador.focus();
                 });
             } else {
-                Swal.fire('Error', res.message, 'error');
+                Swal.fire('Error Operativo', res.message, 'error');
             }
         });
     }

@@ -42,6 +42,9 @@ if (!defined('NO_LOGIN_REQUIRED')) {
         <li class="nav-item">
           <a class="nav-link" href="/ventas"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/proformas"><i class="fa-solid fa-file-invoice"></i> Cobranza (Fiados)</a>
+        </li>
         <?php if (isAdmin()): ?>
         <li class="nav-item">
           <a class="nav-link" href="/inventario"><i class="fa-solid fa-boxes-stacked"></i> Inventario (F3)</a>

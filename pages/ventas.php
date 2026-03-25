@@ -3,6 +3,10 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 checkLogin();
 
+// Fetch metodos for the Modal
+$stmtMetodos = $pdo->query("SELECT * FROM metodos_pago WHERE activo = 1 ORDER BY id ASC");
+$metodosPago = $stmtMetodos->fetchAll();
+
 require_once '../includes/header.php';
 ?>
 
@@ -78,19 +82,77 @@ require_once '../includes/header.php';
                 
                 <h5 class="fw-bold mb-3">Acciones</h5>
                 <div class="d-grid gap-3">
-                    <button class="btn btn-success btn-lg py-3 shadow-sm fw-bold" id="btn-cobrar">
+                    <button class="btn btn-success btn-lg py-3 shadow-sm fw-bold w-100 mt-2 fs-4" id="btn-cobrar-pre" data-bs-toggle="modal" data-bs-target="#modalPago">
                         <i class="fa-solid fa-money-bill-wave me-2"></i> Procesar Pago (F9)
                     </button>
-                    <button class="btn btn-outline-warning py-2" id="btn-fiado">
+                    <button class="btn btn-outline-warning py-2 w-100 mt-2" id="btn-fiado">
                         <i class="fa-solid fa-handshake-angle me-2"></i> Emitir a Crédito (Fiado)
                     </button>
-                    <button class="btn btn-danger py-2" id="btn-anular">
+                    <button class="btn btn-danger py-2 w-100 mt-2" id="btn-anular">
                         <i class="fa-solid fa-ban me-2"></i> Anular
                     </button>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- Modal Pago Mixto -->
+<div class="modal fade" id="modalPago" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h4 class="modal-title fw-bold"><i class="fa-solid fa-money-bill-transfer"></i> Procesar Pago Multiple</h4>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+          <div class="row align-items-center mb-4">
+              <div class="col-md-6 text-center border-end">
+                  <h5 class="text-muted mb-1">Monto a Cobrar</h5>
+                  <h1 class="text-primary fw-bolder mb-0" id="modal-pagar-usd">$0.00</h1>
+              </div>
+              <div class="col-md-6 text-center">
+                  <h5 class="text-muted mb-1">Resta por Cobrar</h5>
+                  <h1 class="text-danger fw-bolder mb-0" id="modal-resta-usd">$0.00</h1>
+              </div>
+          </div>
+          <div class="alert alert-info py-2 small"><i class="fa-solid fa-circle-info"></i> Tasa de Cálculo Actual: <strong id="modal-tasa-actual"><?php echo floatval(getConfig('tasa_usd_bs', $pdo)); ?></strong> Bs/$</div>
+          
+          <table class="table table-bordered align-middle">
+              <thead class="bg-light">
+                  <tr>
+                      <th width="40%">Método de Pago</th>
+                      <th width="30%" class="text-center">Monto (USD)</th>
+                      <th width="30%" class="text-center">Monto (Bs)</th>
+                  </tr>
+              </thead>
+              <tbody id="lista-metodos-pago">
+                  <?php foreach($metodosPago as $mp): ?>
+                  <tr class="metodo-row" data-id="<?php echo $mp['id']; ?>">
+                      <td class="fw-bold"><i class="fa-solid fa-wallet text-muted me-2"></i> <?php echo e($mp['nombre']); ?></td>
+                      <td>
+                          <div class="input-group">
+                              <span class="input-group-text bg-light">$</span>
+                              <input type="number" step="0.01" min="0" class="form-control text-end input-monto-usd bg-white" placeholder="0.00">
+                          </div>
+                      </td>
+                      <td>
+                          <div class="input-group">
+                              <span class="input-group-text bg-light">Bs</span>
+                              <input type="number" step="0.01" min="0" class="form-control text-end input-monto-bs bg-white" placeholder="0.00">
+                          </div>
+                      </td>
+                  </tr>
+                  <?php endforeach; ?>
+              </tbody>
+          </table>
+      </div>
+      <div class="modal-footer pb-3 px-4">
+        <button type="button" class="btn btn-light fs-5" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success fs-5 px-5 fw-bold shadow-sm" id="btn-procesar-mixto" disabled><i class="fa-solid fa-check"></i> Emitir Proforma</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="/assets/js/pos.js"></script>
