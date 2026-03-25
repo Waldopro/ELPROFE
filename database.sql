@@ -166,6 +166,7 @@ CREATE TABLE usuarios (
 
 -- Insertar datos iniciales
 INSERT INTO configuracion (clave, valor, descripcion) VALUES ('tasa_usd_bs', '36.5', 'Tasa de cambio actual (USD a VES)');
+INSERT INTO configuracion (clave, valor, descripcion) VALUES ('tasa_tipo', 'MANUAL', 'Tipo de cálculo de tasa actual');
 
 INSERT INTO metodos_pago (nombre, moneda_base) VALUES 
 ('Dolar', 'USD'),

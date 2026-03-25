@@ -31,6 +31,8 @@ RewriteRule ^compras/?$ pages/compras.php [QSA,L]
 RewriteRule ^proveedores/?$ pages/proveedores.php [QSA,L]
 RewriteRule ^caja/?$ pages/caja.php [QSA,L]
 RewriteRule ^clientes/?$ pages/clientes.php [QSA,L]
+RewriteRule ^configuracion/?$ pages/configuracion.php [QSA,L]
+RewriteRule ^usuarios/?$ pages/usuarios.php [QSA,L]
 
 # Capturar cualquier otra ruta basura, ignorando archivos reales
 RewriteCond %{REQUEST_FILENAME} !-f

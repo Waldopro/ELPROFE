@@ -58,6 +58,12 @@ if (!defined('NO_LOGIN_REQUIRED')) {
         <li class="nav-item">
           <a class="nav-link" href="/ELPROFE/caja"><i class="fa-solid fa-cash-register"></i> Auditoría Caja</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/ELPROFE/usuarios"><i class="fa-solid fa-users-gear"></i> Usuarios</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/ELPROFE/configuracion"><i class="fa-solid fa-gears"></i> Servidor POS</a>
+        </li>
         <?php endif; ?>
         <li class="nav-item">
           <a class="nav-link" href="/ELPROFE/clientes"><i class="fa-solid fa-users"></i> Clientes</a>
