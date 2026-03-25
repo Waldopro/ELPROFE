@@ -90,7 +90,7 @@ require_once '../includes/header.php';
                 <tbody>
                     <?php
                     $stmt = $pdo->query("SELECT p.id, p.nombre, p.foto, p.stock_actual, p.costo_promedio_usd,
-                                         (SELECT GROUP_CONCAT(CONCAT(pr.nombre_presentacion, ' (', pr.factor_conversion, ' un) - $', pr.precio_venta_usd) SEPARATOR '||') 
+                                         (SELECT GROUP_CONCAT(CONCAT(pr.codigo_barras, '@@', pr.nombre_presentacion, ' (', pr.factor_conversion, ' un) - $', pr.precio_venta_usd) SEPARATOR '||') 
                                           FROM presentaciones pr WHERE pr.producto_id = p.id) as presentaciones_lista
                                          FROM productos p ORDER BY p.nombre ASC");
                     $productos = $stmt->fetchAll();
@@ -103,8 +103,12 @@ require_once '../includes/header.php';
                             $pres_html = "";
                             if ($p['presentaciones_lista']) {
                                 $pres_arr = explode('||', $p['presentaciones_lista']);
-                                foreach($pres_arr as $pres) {
-                                    $pres_html .= "<span class='badge bg-light text-dark border me-1 mb-1 fw-normal'>".e($pres)."</span>";
+                                foreach($pres_arr as $pres_raw) {
+                                    $dataArr = explode('@@', $pres_raw);
+                                    $bcode = $dataArr[0] ?? '';
+                                    $bdesc = $dataArr[1] ?? '';
+                                    $tit = htmlspecialchars(addslashes($p['nombre'] . ' - ' . $bdesc));
+                                    $pres_html .= "<span class='badge bg-light text-dark border me-1 mb-1 fw-normal'>".e($bdesc)." <a href='javascript:void(0)' onclick='abrirEtiqueta(\"".e($bcode)."\", \"".$tit."\")' class='text-primary ms-1' title='Crear Etiqueta'><i class='fa-solid fa-barcode'></i></a></span>";
                                 }
                             } else {
                                 $pres_html = "<span class='text-danger small'><i class='fa-solid fa-triangle-exclamation'></i> Cero presentaciones. Incomprable.</span>";
@@ -246,7 +250,54 @@ require_once '../includes/header.php';
   </div>
 </div>
 
+<!-- Modal Etiqueta Código de Barras -->
+<div class="modal fade" id="modalEtiqueta" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h6 class="modal-title fw-bold"><i class="fa-solid fa-print"></i> Etiqueta Física</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-4 bg-white" id="area-impresion">
+          <small class="d-block text-dark fw-bold mb-2" id="etiqueta-nombre" style="font-size: 0.75rem;"></small>
+          <svg id="etiqueta-svg"></svg>
+      </div>
+      <div class="modal-footer pb-3 justify-content-center">
+        <button type="button" class="btn btn-primary fw-bold shadow-sm w-100" onclick="imprimirEtiqueta()"><i class="fa-solid fa-print"></i> Mandar a Impresora</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script>
+function abrirEtiqueta(codigo, descripcion) {
+    $('#etiqueta-nombre').text(descripcion);
+    JsBarcode("#etiqueta-svg", codigo, {
+        format: "CODE128",
+        lineColor: "#000",
+        width: 2,
+        height: 60,
+        displayValue: true,
+        fontSize: 14
+    });
+    new bootstrap.Modal(document.getElementById('modalEtiqueta')).show();
+}
+
+function imprimirEtiqueta() {
+    let contenido = document.getElementById('area-impresion').innerHTML;
+    let ventana = window.open('', '', 'width=400,height=300');
+    ventana.document.write('<html><head><title>Imprimir Etiqueta</title>');
+    ventana.document.write('<style>body{margin:0;padding:10px;text-align:center;font-family:sans-serif;} svg{width:100%;max-width:250px;}</style></head><body>');
+    ventana.document.write(contenido);
+    ventana.document.write('</body></html>');
+    ventana.document.close();
+    ventana.setTimeout(function(){
+        ventana.print();
+        ventana.close();
+    }, 500);
+}
+
 $(document).ready(function() {
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
     $('#csrf_token_foto').val(csrfToken);
