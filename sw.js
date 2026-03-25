@@ -18,14 +18,24 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-    // Si la solicitud no es una página PHP o la URL no empieza por HTTP
+    // Si la solicitud no es GET o no es HTTP, se omite
     if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) return;
     
     event.respondWith(
         fetch(event.request).catch(() => {
             return caches.match(event.request).then(response => {
-                // If it's a page and we are offline, we could return a specific offline.html
-                return response;
+                if (response) return response;
+                
+                // Si falla fetch() por red, y el cache no tiene el archivo (paginas dinamicas PHP)
+                // Se debe retornar una clase <Response> para no bloquear ServiceWorker.
+                return new Response(
+                    "Error de Conexión: Estás sin conexión o el servidor no responde. No se puede cargar esta pantalla dinámica.", 
+                    {
+                        status: 503,
+                        statusText: "Service Unavailable",
+                        headers: new Headers({"Content-Type": "text/plain; charset=utf-8"})
+                    }
+                );
             });
         })
     );

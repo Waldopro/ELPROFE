@@ -98,6 +98,9 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
         
         .btn-print { display: block; width: 200px; margin: 0 auto 20px auto; padding: 10px; background: #0d6efd; color: white; text-align: center; font-weight: bold; text-decoration: none; border-radius: 5px; cursor: pointer; border: none; }
         
+        [contenteditable=true]:empty:before { content: attr(placeholder); color: #999; display: block; }
+        td[contenteditable=true]:focus { background-color: #fffbdd; outline: 1px dashed #cca; }
+
         @media print {
             body { padding: 0; background: none; }
             .page { border: none; box-shadow: none; padding: 0; max-width: 100%; }
@@ -181,9 +184,7 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
         <div style="width: 55%;">
             <table class="border">
                 <tr><td class="td-label">Observaciones:</td></tr>
-                <tr><td style="height: 60px; vertical-align: top;">
-                    
-                </td></tr>
+                <tr><td id="obs_box" contenteditable="true" placeholder="Haga clic aquí para escribir una observación o comentario antes de imprimir..." style="height: 60px; vertical-align: top; font-size: 13px;"></td></tr>
             </table>
         </div>
         <div class="totals">
@@ -207,6 +208,18 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
 </div>
 
 <script>
+    // Recuperar observaciones escritas previamente si se guardaron en caché
+    let obsBox = document.getElementById('obs_box');
+    let cacheKey = 'obs_<?php echo $id; ?>';
+    
+    if (localStorage.getItem(cacheKey)) {
+        obsBox.innerHTML = localStorage.getItem(cacheKey);
+    }
+    
+    obsBox.addEventListener('input', function() {
+        localStorage.setItem(cacheKey, this.innerHTML);
+    });
+
     if(new URLSearchParams(window.location.search).has('print')) {
         setTimeout(() => { window.print(); }, 500);
     }

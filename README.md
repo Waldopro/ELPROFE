@@ -2,8 +2,8 @@
 
 ![Estado](https://img.shields.io/badge/Estado-Fase_1_Completada-success)
 ![Versión](https://img.shields.io/badge/Versión-1.0.0-blue)
-![PHP](https://img.shields.io/badge/PHP-8.2+-purple)
-![MySQL](https://img.shields.io/badge/MySQL-Triggers_Avanzados-orange)
+![PHP](https://img.shields.io/badge/PHP-8.4-purple)
+![MySQL](https://img.shields.io/badge/MariaDB-11.8-orange)
 
 **ELPROFE** es un sistema Point of Sale (POS) robusto, seguro y moderno diseñado en PHP Estructurado (Procedural) y MySQL. Está construido bajo rigurosos estándares operacionales y reglas de negocio enfocadas a la realidad de negocios físicos con transacciones bimonetarias (Divisas/Moneda Local) y descomposición de inventarios (Padre e Hijos).
 
@@ -18,11 +18,18 @@
 - **Etiquetas de Barras:** Generador y dibujador visual de códigos de barra (Formato Internacional) listo para impresoras tickets o láser.
 
 ### 💰 Contabilidad y Multimoneda
-- **Manejo Dual de Moneda:** Todas las operaciones de cálculo (Ventas y Compras) utilizan una Tasa del Día global configurable (`tasa_usd_bs`).
+- **Manejo Dual de Moneda:** API scraper en tiempo real conectada al Banco Central de Venezuela (BCV) o Tasa de Cambio Manual. Modificable globalmente en el Panel de Configuración.
 - **Cobranza a Crédito (Fiado):** Emisión de proformas (Notas de Entrega) que quedan en estado por cobrar (`PENDIENTE` o `PARCIAL`).
 - **Ponderación Dinámica de Deudas:** Si un cliente abona dinero a un fiado días después, el sistema automáticamente usa la Tasa del Día **actual** y calcula el equivalente exacto restándolo de su saldo global en las divisas que se anclaron de origen.
-- **Control de Abonos (Split-Payment):** Un cliente puede pagar una proforma en varias partes o usar diferentes métodos simultáneamente (Ej: Efectivo USD + Punto de Venta + Binance).
+- **Control de Abonos (Split-Payment):** Un cliente puede pagar una proforma en varias partes o usar diferentes métodos simultáneamente (Ej: Efectivo USD + Pago Móvil + Binance).
 - **Auditoría de Caja:** Historial transparente en cascada, clasificado por Cajero, Movimientos Operativos, Métodos de Pago y Balance de Turno (Sesiones de Caja).
+
+### 📱 Compartición y Movilidad (Novedades)
+- **Progressive Web App (PWA):** Sistema instalable gráficamente en dispositivos Android/iOS y Escritorios (Chrome/Edge) con soporte offline en caché (Service Workers) y Manifest dedicado.
+- **Módulo Multi-Comprobante:** Generación bajo normativas SENIAT de *Tickets Térmicos* (58mm/80mm) con desglose de impuestos IVA/B.I., y *Notas de Entrega (Factura A4)* diseñadas para impresoras láser o exportación a PDF.
+- **Compartición Nativa Web-Share (WhatsApp):** Motor gráfico impulsado por **HTML2Canvas** capaz de fotografiar virtualmente los comprobantes de venta desde el navegador (limpiando botones) y convertirlos en imágenes .PNG físicas de alta calidad. Envío instantáneo por *WhatsApp Native* en móviles, guardando copias perpetuas transaccionales en el servidor (`assets/tickets`).
+- **Notas Editables Al Vuelo:** Opción táctil de escritura rápida sobre las facturas Web para colocar observaciones instantáneas antes de la impresión, almacenadas mediante Caché `localStorage`.
+- **Entorno de Testing Autónomo:** Área exclusiva para Administradores que carga "Plantillas Genéricas de Prueba Guiada", permitiendo revisar y calibrar las ticketeras sin necesidad de procesar ventas ni ensuciar la Base de Datos.
 
 ### 🛡️ Seguridad Operacional y Arquitectura
 - **Protección de Accesos Internos:** Sistema de Roles RBAC (`Administrador` vs `Cajero` visible).
@@ -36,8 +43,8 @@
 
 ### 1. Requisitos del Servidor
 - Servidor Web (Apache/Nginx integrado con URLs Amigables Mod_Rewrite activo)
-- PHP >= 8.0 (Extensiones recomendadas: `pdo_mysql`, `mbstring`, `json`)
-- MySQL >= 8.0 o MariaDB equivalente
+- PHP >= 8.4 (Extensiones recomendadas: `pdo_mysql`, `mbstring`, `json`, `gd` o `cURL`)
+- MariaDB >= 11.8 o MySQL equivalente superior
 
 ### 2. Puesta en Marcha Inicial
 1. Clona el repositorio en tu espacio HTDocs o `/var/www/html/ELPROFE`.
