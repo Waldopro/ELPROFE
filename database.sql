@@ -186,3 +186,52 @@ CREATE INDEX idx_compras_fecha ON compras(fecha);
 CREATE INDEX idx_movimientos_fecha ON movimientos_caja(fecha);
 CREATE INDEX idx_productos_codigo ON productos(codigo_barras);
 
+-- ==========================================
+-- TRIGGERS DE INVENTARIO (BLINDAJE ESTRICTO)
+-- ==========================================
+DELIMITER //
+
+-- Cuando se registra el detalle de una compra, sumar stock y recalcular costo promedio
+CREATE TRIGGER trg_compra_detalle_insert 
+AFTER INSERT ON compra_detalles
+FOR EACH ROW
+BEGIN
+    UPDATE productos 
+    SET 
+        costo_promedio_usd = ((stock_actual * costo_promedio_usd) + (NEW.cantidad * NEW.costo_unitario_usd)) / (stock_actual + NEW.cantidad),
+        stock_actual = stock_actual + NEW.cantidad 
+    WHERE id = NEW.producto_id;
+END; //
+
+-- Cuando se anula o elimina un detalle de compra, revertir stock
+CREATE TRIGGER trg_compra_detalle_delete 
+AFTER DELETE ON compra_detalles
+FOR EACH ROW
+BEGIN
+    UPDATE productos 
+    SET stock_actual = stock_actual - OLD.cantidad 
+    WHERE id = OLD.producto_id;
+END; //
+
+-- Cuando se inserta un detalle de proforma/venta, restar stock
+CREATE TRIGGER trg_proforma_detalle_insert 
+AFTER INSERT ON proforma_detalles
+FOR EACH ROW
+BEGIN
+    UPDATE productos 
+    SET stock_actual = stock_actual - NEW.cantidad 
+    WHERE id = NEW.producto_id;
+END; //
+
+-- Cuando se anula o elimina un detalle de proforma, revertir stock (devolución)
+CREATE TRIGGER trg_proforma_detalle_delete 
+AFTER DELETE ON proforma_detalles
+FOR EACH ROW
+BEGIN
+    UPDATE productos 
+    SET stock_actual = stock_actual + OLD.cantidad 
+    WHERE id = OLD.producto_id;
+END; //
+
+DELIMITER ;
+

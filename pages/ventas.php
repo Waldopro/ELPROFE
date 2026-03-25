@@ -93,15 +93,6 @@ require_once '../includes/header.php';
     </div>
 </div>
 
-<script>
-    // JS placeholder para la UI de ventas. En producción real este código debe
-    // ir idealmente en main.js o en un archivo ventas.js.
-    $(document).ready(function() {
-        // En una implementación completa:
-        // 1. input listener en 'buscador-producto' -> AJAX request -> autocompletar
-        // 2. Al seleccionar -> añadir fila a 'lista-productos', actualizar totales
-        // 3. Totales actualizan los divs 'gran-total-usd' y 'gran-total-bs' multiplicando por la tasa
-    });
-</script>
+<script src="/assets/js/pos.js"></script>
 
 <?php require_once '../includes/footer.php'; ?>

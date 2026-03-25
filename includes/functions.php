@@ -69,3 +69,30 @@ function verifyCsrfToken($token) {
         die("Acción no permitida (Error CSRF).");
     }
 }
+
+// ==========================================
+// SESIONES Y ALERTAS (FLASH MESSAGES)
+// ==========================================
+function setFlash($type, $message) {
+    $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+}
+
+function displayFlash() {
+    if (isset($_SESSION['flash'])) {
+        $f = $_SESSION['flash'];
+        unset($_SESSION['flash']);
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: '".e($f['type'])."',
+                    title: '".e($f['message'])."',
+                    showConfirmButton: false,
+                    timer: 4000
+                });
+            });
+        </script>";
+    }
+}
+
