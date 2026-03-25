@@ -23,6 +23,9 @@ if (!defined('NO_LOGIN_REQUIRED')) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/ELPROFE/assets/css/style.css">
+    
+    <!-- jQuery en el HEAD (Requerido por modulos) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -57,6 +60,9 @@ if (!defined('NO_LOGIN_REQUIRED')) {
         </li>
         <li class="nav-item">
           <a class="nav-link" href="/ELPROFE/caja"><i class="fa-solid fa-cash-register"></i> Auditoría Caja</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/ELPROFE/bitacora"><i class="fa-solid fa-shield-halved"></i> Bitácora</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="/ELPROFE/usuarios"><i class="fa-solid fa-users-gear"></i> Usuarios</a>

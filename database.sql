@@ -164,6 +164,27 @@ CREATE TABLE usuarios (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE bitacora_accesos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NULL,
+    username_intento VARCHAR(50),
+    ip VARCHAR(45),
+    dispositivo VARCHAR(255),
+    exito TINYINT(1),
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE bitacora_acciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    modulo VARCHAR(50) NOT NULL,
+    accion VARCHAR(255) NOT NULL,
+    detalle TEXT,
+    ip VARCHAR(45),
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
 -- Insertar datos iniciales
 INSERT INTO configuracion (clave, valor, descripcion) VALUES ('tasa_usd_bs', '36.5', 'Tasa de cambio actual (USD a VES)');
 INSERT INTO configuracion (clave, valor, descripcion) VALUES ('tasa_tipo', 'MANUAL', 'Tipo de cálculo de tasa actual');

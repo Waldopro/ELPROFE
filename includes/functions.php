@@ -40,6 +40,27 @@ function formatMoney($amount) {
 }
 
 // ==========================================
+// BITACORA Y AUDITORIA
+// ==========================================
+function registrarAcceso($pdo, $usuario_id, $username, $dispositivo, $exito) {
+    try {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        $ex_int = $exito ? 1 : 0;
+        $stmt = $pdo->prepare("INSERT INTO bitacora_accesos (usuario_id, username_intento, ip, dispositivo, exito) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$usuario_id, $username, $ip, $dispositivo, $ex_int]);
+    } catch(Exception $e) {} // Silent fail on logs
+}
+
+function registrarAccion($pdo, $modulo, $accion, $detalle = '') {
+    try {
+        if (!isset($_SESSION['user_id'])) return;
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        $stmt = $pdo->prepare("INSERT INTO bitacora_acciones (usuario_id, modulo, accion, detalle, ip) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$_SESSION['user_id'], $modulo, $accion, $detalle, $ip]);
+    } catch(Exception $e) {} // Silent fail on logs
+}
+
+// ==========================================
 // SEGURIDAD: XSS y CSRF
 // ==========================================
 

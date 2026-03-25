@@ -1,9 +1,13 @@
 <?php
 // includes/db.php
-$host = 'localhost';
-$db   = 'elprofe_db';
-$user = 'root';
-$pass = '1704'; // Adjust as necessary
+
+$envFile = __DIR__ . '/../.env';
+$env = file_exists($envFile) ? parse_ini_file($envFile) : [];
+
+$host = $env['DB_HOST'] ?? 'localhost';
+$db   = $env['DB_NAME'] ?? 'elprofe_db';
+$user = $env['DB_USER'] ?? 'root';
+$pass = $env['DB_PASS'] ?? '';
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";

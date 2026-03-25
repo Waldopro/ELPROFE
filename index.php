@@ -4,7 +4,7 @@ require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
 if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
+    header("Location: /ELPROFE/dashboard");
     exit;
 }
 
@@ -26,9 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $row['id'];
             $_SESSION['user_name'] = $row['nombre'];
             $_SESSION['user_role'] = $row['rol'];
-            header("Location: dashboard.php");
+            
+            registrarAcceso($pdo, $row['id'], $user, $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown', true);
+            registrarAccion($pdo, 'SISTEMA', 'LOGIN_EXITO', "Usuario ingresó al sistema.");
+            
+            header("Location: /ELPROFE/dashboard");
             exit;
         } else {
+            registrarAcceso($pdo, null, $user, $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown', false);
             $error = 'Credenciales inválidas.';
         }
     }
