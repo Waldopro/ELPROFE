@@ -9,12 +9,17 @@ verifyCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-// GET: Buscar producto por código de barras o nombre
+// GET: Buscar producto por presentación
 if ($action === 'buscar_producto') {
     $q = trim($_GET['q'] ?? '');
     if(strlen($q) < 2) responseJson([]);
     
-    $stmt = $pdo->prepare("SELECT id, codigo_barras, nombre, precio_venta_usd, stock_actual FROM productos WHERE (codigo_barras = :q OR nombre LIKE :lq) ORDER BY nombre LIMIT 10");
+    $stmt = $pdo->prepare("SELECT pr.id as presentacion_id, pr.codigo_barras, 
+                                  CONCAT(p.nombre, ' - ', pr.nombre_presentacion) as nombre_completo,
+                                  pr.precio_venta_usd, pr.factor_conversion, p.stock_actual 
+                           FROM presentaciones pr 
+                           JOIN productos p ON pr.producto_id = p.id 
+                           WHERE pr.codigo_barras = :q OR p.nombre LIKE :lq ORDER BY p.nombre LIMIT 10");
     $stmt->execute(['q' => $q, 'lq' => "%$q%"]);
     responseJson($stmt->fetchAll());
 }
@@ -48,12 +53,16 @@ if ($action === 'procesar_proforma') {
         // 1. Calcular Totales reales desde la DB para evitar hackeo del cart JS
         $totalUSD = 0;
         foreach ($productos as &$p) {
-            $stmt = $pdo->prepare("SELECT precio_venta_usd, stock_actual, nombre FROM productos WHERE id = ? FOR UPDATE");
-            $stmt->execute([$p['id']]);
+            $stmt = $pdo->prepare("SELECT pr.precio_venta_usd, pr.factor_conversion, p.stock_actual, p.nombre 
+                                   FROM presentaciones pr JOIN productos p ON pr.producto_id = p.id 
+                                   WHERE pr.id = ? FOR UPDATE");
+            $stmt->execute([$p['presentacion_id']]);
             $dbProd = $stmt->fetch();
             
-            if(!$dbProd) throw new Exception("Producto no encontrado.");
-            if($dbProd['stock_actual'] < $p['cantidad']) throw new Exception("Stock insuficiente para: ".$dbProd['nombre']);
+            if(!$dbProd) throw new Exception("Presentación no encontrada.");
+            
+            $unidadesDescontar = $p['cantidad'] * $dbProd['factor_conversion'];
+            if($dbProd['stock_actual'] < $unidadesDescontar) throw new Exception("Stock insuficiente (Unds) para: ".$dbProd['nombre']);
             
             $p['precio_unitario_usd'] = $dbProd['precio_venta_usd'];
             $p['subtotal_usd'] = round($p['cantidad'] * $dbProd['precio_venta_usd'], 2);
@@ -62,12 +71,10 @@ if ($action === 'procesar_proforma') {
         
         // 2. Si no hay cliente, asignarlo al "Consumidor Final" por defecto
         if ($clienteId === 0) {
-            // Buscamos o creamos el consumidor final
             $stmt = $pdo->query("SELECT id FROM clientes WHERE cedula_rif = 'V-00000000'");
             $cf = $stmt->fetch();
-            if ($cf) {
-                $clienteId = $cf['id'];
-            } else {
+            if ($cf) $clienteId = $cf['id'];
+            else {
                 $pdo->query("INSERT INTO clientes (nombre, cedula_rif) VALUES ('Consumidor Final', 'V-00000000')");
                 $clienteId = $pdo->lastInsertId();
             }
@@ -81,10 +88,10 @@ if ($action === 'procesar_proforma') {
         $stmt->execute([$clienteId, $_SESSION['user_id'], $tasa, $totalUSD, $saldoPendiente, $estado]);
         $proforma_id = $pdo->lastInsertId();
         
-        // 4. Insertar Detalles (los triggers creados se encargarán de restar el inventario!)
-        $stmtDetalle = $pdo->prepare("INSERT INTO proforma_detalles (proforma_id, producto_id, cantidad, precio_unitario_usd, subtotal_usd) VALUES (?, ?, ?, ?, ?)");
+        // 4. Insertar Detalles (los triggers creados se encargarán de restar el inventario base multiplicando el factor!)
+        $stmtDetalle = $pdo->prepare("INSERT INTO proforma_detalles (proforma_id, presentacion_id, cantidad, precio_unitario_usd, subtotal_usd) VALUES (?, ?, ?, ?, ?)");
         foreach ($productos as $p) {
-            $stmtDetalle->execute([$proforma_id, $p['id'], $p['cantidad'], $p['precio_unitario_usd'], $p['subtotal_usd']]);
+            $stmtDetalle->execute([$proforma_id, $p['presentacion_id'], $p['cantidad'], $p['precio_unitario_usd'], $p['subtotal_usd']]);
         }
         
         // 5. Si es de Contado, registrar el Abono total y Movimiento de Caja

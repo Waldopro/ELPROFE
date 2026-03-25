@@ -52,17 +52,18 @@ const POS = (() => {
     }
 
     function addToCart(producto) {
-        const exist = cart.find(p => p.id === producto.id);
+        const exist = cart.find(p => p.presentacion_id === producto.presentacion_id);
         if (exist) {
             exist.cantidad++;
         } else {
             cart.push({
-                id: producto.id,
+                presentacion_id: producto.presentacion_id,
                 codigo: producto.codigo_barras,
-                nombre: producto.nombre,
+                nombre: producto.nombre_completo,
                 precio: parseFloat(producto.precio_venta_usd),
                 cantidad: 1,
-                stock: parseFloat(producto.stock_actual)
+                 factor_conversion: parseFloat(producto.factor_conversion),
+                stock_unidades: parseFloat(producto.stock_actual)
             });
         }
         renderCart();
@@ -77,16 +78,17 @@ const POS = (() => {
                     elements.resultados.empty().show();
                     if(res.length > 0) {
                         res.forEach(prod => {
+                            let maxPresentaciones = Math.floor(parseFloat(prod.stock_actual) / parseFloat(prod.factor_conversion));
                             elements.resultados.append(`<a href="#" class="list-group-item list-group-item-action product-result" data-prod='${JSON.stringify(prod)}'>
                                 <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">${prod.nombre}</h6>
+                                    <h6 class="mb-1">${prod.nombre_completo}</h6>
                                     <small class="text-primary fw-bold">$${parseFloat(prod.precio_venta_usd).toFixed(2)}</small>
                                 </div>
-                                <small>Código: ${prod.codigo_barras} | Stock: ${parseFloat(prod.stock_actual)}</small>
+                                <small>Código: ${prod.codigo_barras} | Disponible: ${maxPresentaciones} (Unds Global: ${parseFloat(prod.stock_actual)})</small>
                             </a>`);
                         });
                     } else {
-                        elements.resultados.append('<div class="list-group-item text-muted">No se encontró producto</div>');
+                        elements.resultados.append('<div class="list-group-item text-muted">No se encontró producto en catálogo de presentaciones</div>');
                     }
                 });
             } else {

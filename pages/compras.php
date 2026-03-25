@@ -37,10 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $compra_id = $pdo->lastInsertId();
         
         // Insertar Detalles (El Trigger `trg_compra_detalle_insert` SUMARÁ el stock y calculará promedio)
-        $stmtDetalle = $pdo->prepare("INSERT INTO compra_detalles (compra_id, producto_id, cantidad, costo_unitario_usd, costo_total_usd) VALUES (?, ?, ?, ?, ?)");
+        $stmtDetalle = $pdo->prepare("INSERT INTO compra_detalles (compra_id, presentacion_id, cantidad, costo_unitario_usd, costo_total_usd) VALUES (?, ?, ?, ?, ?)");
         
         foreach ($productos as $p) {
-            $stmtDetalle->execute([$compra_id, $p['id'], floatval($p['cantidad']), floatval($p['costo_unitario_usd']), floatval($p['costo_total_usd'])]);
+            $stmtDetalle->execute([$compra_id, $p['presentacion_id'], floatval($p['cantidad']), floatval($p['costo_unitario_usd']), floatval($p['costo_total_usd'])]);
         }
         
         $pdo->commit();
@@ -59,7 +59,8 @@ require_once '../includes/header.php';
 
 // Obtener Proveedores y Catálogo para el JS
 $provs = $pdo->query("SELECT id, nombre, rif FROM proveedores ORDER BY nombre")->fetchAll();
-$prods = $pdo->query("SELECT id, nombre, codigo_barras FROM productos ORDER BY nombre")->fetchAll();
+$prods = $pdo->query("SELECT pr.id, pr.codigo_barras, CONCAT(p.nombre, ' [', pr.nombre_presentacion, ']') as label 
+                      FROM presentaciones pr JOIN productos p ON pr.producto_id = p.id ORDER BY p.nombre")->fetchAll();
 ?>
 
 <div class="row gx-4 mb-4">
@@ -114,9 +115,9 @@ $prods = $pdo->query("SELECT id, nombre, codigo_barras FROM productos ORDER BY n
                     <div class="col-md-5">
                         <label class="form-label text-muted small mb-1">Buscar Producto en Catálogo</label>
                         <select id="select-producto" class="form-select">
-                            <option value="">-- Elija un Producto --</option>
+                            <option value="">-- Escanee o Elija Presentación --</option>
                             <?php foreach($prods as $pd): ?>
-                                <option value="<?php echo $pd['id']; ?>" data-nombre="<?php echo e($pd['nombre']); ?>"><?php echo e($pd['codigo_barras'] . ' - ' . $pd['nombre']); ?></option>
+                                <option value="<?php echo $pd['id']; ?>" data-nombre="<?php echo e($pd['label']); ?>"><?php echo e($pd['codigo_barras'] . ' - ' . $pd['label']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -208,14 +209,14 @@ $(document).ready(function() {
         }
         
         // Verifica si ya fue añadido
-        const index = orderList.findIndex(x => x.id === id);
+        const index = orderList.findIndex(x => x.presentacion_id === id);
         if(index > -1) {
             orderList[index].cantidad += qty;
             orderList[index].costo_unitario_usd = cost; // Update al ultimo costo ingresado
             orderList[index].costo_total_usd = orderList[index].cantidad * orderList[index].costo_unitario_usd;
         } else {
             orderList.push({
-                id: id,
+                presentacion_id: id,
                 nombre: nombre,
                 cantidad: qty,
                 costo_unitario_usd: cost,

@@ -26,17 +26,40 @@ CREATE TABLE metodos_pago (
     activo TINYINT(1) DEFAULT 1
 );
 
--- 2. INVENTARIO
+-- 2. INVENTARIO Y PRESENTACIONES (PADRE-HIJO)
 CREATE TABLE productos (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    codigo_barras VARCHAR(50) UNIQUE,
     nombre VARCHAR(150) NOT NULL,
     descripcion TEXT,
     foto VARCHAR(255) DEFAULT NULL,
     stock_actual DECIMAL(10, 2) DEFAULT 0.00,
     costo_promedio_usd DECIMAL(12, 2) DEFAULT 0.00,
-    precio_venta_usd DECIMAL(12, 2) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE presentaciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    producto_id INT NOT NULL,
+    nombre_presentacion VARCHAR(100) NOT NULL, -- Ej: 'Unidades', 'Caja de 12', etc.
+    factor_conversion DECIMAL(10, 2) NOT NULL DEFAULT 1.00,
+    precio_venta_usd DECIMAL(12, 2) NOT NULL,
+    codigo_barras VARCHAR(50) UNIQUE NOT NULL,
+    FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
+);
+
+-- 2.5 SESIONES DE CAJA
+CREATE TABLE sesiones_caja (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    fecha_apertura DATETIME DEFAULT CURRENT_TIMESTAMP,
+    monto_inicial_usd DECIMAL(12, 2) DEFAULT 0.00,
+    monto_inicial_bs DECIMAL(12, 2) DEFAULT 0.00,
+    fecha_cierre DATETIME NULL,
+    monto_cierre_usd_declarado DECIMAL(12, 2) DEFAULT NULL,
+    monto_cierre_bs_declarado DECIMAL(12, 2) DEFAULT NULL,
+    notas_cierre TEXT,
+    estado ENUM('ABIERTA', 'CERRADA') DEFAULT 'ABIERTA',
+    KEY idx_sesion_estado (estado)
 );
 
 -- 3. COMPRAS (ENTRADAS)
@@ -55,28 +78,12 @@ CREATE TABLE compras (
 CREATE TABLE compra_detalles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     compra_id INT NOT NULL,
-    producto_id INT NOT NULL,
+    presentacion_id INT NOT NULL,
     cantidad DECIMAL(10, 2) NOT NULL,
     costo_unitario_usd DECIMAL(12, 2) NOT NULL,
     costo_total_usd DECIMAL(12, 2) NOT NULL,
     FOREIGN KEY (compra_id) REFERENCES compras(id) ON DELETE CASCADE,
-    FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE RESTRICT
-);
-
--- 2.5 SESIONES DE CAJA (Control estricto de turnos operacionales)
-CREATE TABLE sesiones_caja (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario_id INT NOT NULL,
-    fecha_apertura DATETIME DEFAULT CURRENT_TIMESTAMP,
-    monto_inicial_usd DECIMAL(12, 2) DEFAULT 0.00,
-    monto_inicial_bs DECIMAL(12, 2) DEFAULT 0.00,
-    fecha_cierre DATETIME NULL,
-    monto_cierre_usd_declarado DECIMAL(12, 2) DEFAULT NULL,
-    monto_cierre_bs_declarado DECIMAL(12, 2) DEFAULT NULL,
-    notas_cierre TEXT,
-    estado ENUM('ABIERTA', 'CERRADA') DEFAULT 'ABIERTA',
-    -- FOREIGN KEY (usuario_id) REFERENCES usuarios(id) se asume, la tabla usuarios se crea al final.
-    KEY idx_sesion_estado (estado)
+    FOREIGN KEY (presentacion_id) REFERENCES presentaciones(id) ON DELETE RESTRICT
 );
 
 -- 4. VENTAS (PROFORMAS Y FACTURAS)
@@ -92,18 +99,17 @@ CREATE TABLE proformas (
     saldo_pendiente_usd DECIMAL(12, 2) NOT NULL,
     estado ENUM('PENDIENTE', 'PARCIAL', 'PAGADO', 'ANULADO') DEFAULT 'PENDIENTE',
     FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT
-    -- FOREIGN KEY (cajero_id) REFERENCES usuarios(id)
 );
 
 CREATE TABLE proforma_detalles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     proforma_id INT NOT NULL,
-    producto_id INT NOT NULL,
+    presentacion_id INT NOT NULL,
     cantidad DECIMAL(10, 2) NOT NULL,
     precio_unitario_usd DECIMAL(12, 2) NOT NULL,
     subtotal_usd DECIMAL(12, 2) NOT NULL,
     FOREIGN KEY (proforma_id) REFERENCES proformas(id) ON DELETE CASCADE,
-    FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE RESTRICT
+    FOREIGN KEY (presentacion_id) REFERENCES presentaciones(id) ON DELETE RESTRICT
 );
 
 -- 5. PAGOS Y CAJA
@@ -168,70 +174,74 @@ INSERT INTO metodos_pago (nombre, moneda_base) VALUES
 ('Pago Movil VES', 'VES'),
 ('Zelle USD', 'USD');
 
--- Usuario admin por defecto y cajero de pruebas: password = 123456
 INSERT INTO usuarios (username, password, nombre, rol) VALUES 
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Global', 'ADMIN'),
 ('caja01', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Cajero Principal', 'CAJERO');
 
--- Añadir restricciones FK que faltaban por orden de creación de tablas
 ALTER TABLE proformas ADD CONSTRAINT fk_proforma_cajero FOREIGN KEY (cajero_id) REFERENCES usuarios(id) ON DELETE RESTRICT;
 ALTER TABLE sesiones_caja ADD CONSTRAINT fk_sesion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT;
 ALTER TABLE movimientos_caja ADD CONSTRAINT fk_movimiento_sesion FOREIGN KEY (sesion_caja_id) REFERENCES sesiones_caja(id) ON DELETE RESTRICT;
 
--- ÍNDICES ESTRATÉGICOS PARA VELOCIDAD Y ROBUSTEZ EN CONSULTAS LAAAAAAAARGAS
 CREATE INDEX idx_proformas_estado ON proformas(estado);
 CREATE INDEX idx_proformas_fecha ON proformas(fecha_emision);
 CREATE INDEX idx_proformas_cliente ON proformas(cliente_id);
 CREATE INDEX idx_compras_fecha ON compras(fecha);
 CREATE INDEX idx_movimientos_fecha ON movimientos_caja(fecha);
-CREATE INDEX idx_productos_codigo ON productos(codigo_barras);
+CREATE INDEX idx_presentaciones_codigo ON presentaciones(codigo_barras);
 
 -- ==========================================
--- TRIGGERS DE INVENTARIO (BLINDAJE ESTRICTO)
+-- TRIGGERS DE INVENTARIO (BLINDAJE ESTRICTO DESCOMPUESTO)
 -- ==========================================
 DELIMITER //
 
--- Cuando se registra el detalle de una compra, sumar stock y recalcular costo promedio
 CREATE TRIGGER trg_compra_detalle_insert 
 AFTER INSERT ON compra_detalles
 FOR EACH ROW
 BEGIN
+    DECLARE v_prod_id INT;
+    DECLARE v_factor DECIMAL(10,2);
+    
+    SELECT producto_id, factor_conversion INTO v_prod_id, v_factor
+    FROM presentaciones WHERE id = NEW.presentacion_id;
+    
     UPDATE productos 
     SET 
-        costo_promedio_usd = ((stock_actual * costo_promedio_usd) + (NEW.cantidad * NEW.costo_unitario_usd)) / (stock_actual + NEW.cantidad),
-        stock_actual = stock_actual + NEW.cantidad 
-    WHERE id = NEW.producto_id;
+        costo_promedio_usd = ((stock_actual * costo_promedio_usd) + (NEW.cantidad * NEW.costo_unitario_usd)) / (stock_actual + (NEW.cantidad * v_factor)),
+        stock_actual = stock_actual + (NEW.cantidad * v_factor)
+    WHERE id = v_prod_id;
 END; //
 
--- Cuando se anula o elimina un detalle de compra, revertir stock
 CREATE TRIGGER trg_compra_detalle_delete 
 AFTER DELETE ON compra_detalles
 FOR EACH ROW
 BEGIN
-    UPDATE productos 
-    SET stock_actual = stock_actual - OLD.cantidad 
-    WHERE id = OLD.producto_id;
+    DECLARE v_prod_id INT;
+    DECLARE v_factor DECIMAL(10,2);
+    SELECT producto_id, factor_conversion INTO v_prod_id, v_factor FROM presentaciones WHERE id = OLD.presentacion_id;
+    
+    UPDATE productos SET stock_actual = stock_actual - (OLD.cantidad * v_factor) WHERE id = v_prod_id;
 END; //
 
--- Cuando se inserta un detalle de proforma/venta, restar stock
 CREATE TRIGGER trg_proforma_detalle_insert 
 AFTER INSERT ON proforma_detalles
 FOR EACH ROW
 BEGIN
-    UPDATE productos 
-    SET stock_actual = stock_actual - NEW.cantidad 
-    WHERE id = NEW.producto_id;
+    DECLARE v_prod_id INT;
+    DECLARE v_factor DECIMAL(10,2);
+    SELECT producto_id, factor_conversion INTO v_prod_id, v_factor FROM presentaciones WHERE id = NEW.presentacion_id;
+    
+    UPDATE productos SET stock_actual = stock_actual - (NEW.cantidad * v_factor) WHERE id = v_prod_id;
 END; //
 
--- Cuando se anula o elimina un detalle de proforma, revertir stock (devolución)
 CREATE TRIGGER trg_proforma_detalle_delete 
 AFTER DELETE ON proforma_detalles
 FOR EACH ROW
 BEGIN
-    UPDATE productos 
-    SET stock_actual = stock_actual + OLD.cantidad 
-    WHERE id = OLD.producto_id;
+    DECLARE v_prod_id INT;
+    DECLARE v_factor DECIMAL(10,2);
+    SELECT producto_id, factor_conversion INTO v_prod_id, v_factor FROM presentaciones WHERE id = OLD.presentacion_id;
+    
+    UPDATE productos SET stock_actual = stock_actual + (OLD.cantidad * v_factor) WHERE id = v_prod_id;
 END; //
 
 DELIMITER ;
-
