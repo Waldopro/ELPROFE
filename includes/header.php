@@ -50,6 +50,9 @@ if (!defined('NO_LOGIN_REQUIRED')) {
           <a class="nav-link" href="/compras"><i class="fa-solid fa-truck-fast"></i> Compras (F4)</a>
         </li>
         <li class="nav-item">
+          <a class="nav-link" href="/proveedores"><i class="fa-solid fa-truck-field"></i> Proveedores</a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link" href="/caja"><i class="fa-solid fa-cash-register"></i> Auditoría Caja</a>
         </li>
         <?php endif; ?>

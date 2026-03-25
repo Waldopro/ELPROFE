@@ -3,13 +3,45 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 checkLogin();
 restrictAdmin();
+
+// Formulario de catalogar producto nuevo
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_producto') {
+    verifyCsrfToken($_POST['csrf_token'] ?? '');
+    
+    $codigo = trim($_POST['codigo_barras']);
+    $nombre = trim($_POST['nombre']);
+    $precio = floatval($_POST['precio_venta_usd']);
+    
+    if (empty($codigo) || empty($nombre) || $precio <= 0) {
+        setFlash('error', 'Faltan datos o el precio es inválido.');
+    } else {
+        try {
+            // Se inserta con stock = 0.
+            $stmt = $pdo->prepare("INSERT INTO productos (codigo_barras, nombre, precio_venta_usd, stock_actual, costo_promedio_usd) VALUES (?, ?, ?, 0.00, 0.00)");
+            $stmt->execute([$codigo, $nombre, $precio]);
+            setFlash('success', 'Producto agregado al catálogo. Ya puede emitirle compras.');
+        } catch (\PDOException $e) {
+            if ($e->getCode() == 23000) {
+                setFlash('error', 'El código de barras ya existe.');
+            } else {
+                setFlash('error', 'Error al crear producto: ' . $e->getMessage());
+            }
+        }
+    }
+    header("Location: /inventario");
+    exit;
+}
+
 require_once '../includes/header.php';
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i> Inventario</h2>
     <div>
-        <a href="/compras" class="btn btn-outline-primary"><i class="fa-solid fa-plus me-1"></i> Añadir Stock (Via Compras)</a>
+        <button class="btn btn-primary me-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalProducto">
+            <i class="fa-solid fa-plus me-1"></i> Nuevo Producto (Catálogo)
+        </button>
+        <a href="/compras" class="btn btn-outline-primary shadow-sm"><i class="fa-solid fa-truck-arrow-right me-1"></i> Comprar Mercancía</a>
     </div>
 </div>
 
@@ -88,6 +120,49 @@ require_once '../includes/header.php';
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="button" class="btn btn-primary" id="btn-upload"><i class="fa-solid fa-save"></i> Guardar Foto</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nuevo Producto (Catálogo) -->
+<div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold text-primary">Agregar Nuevo Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="/inventario">
+          <div class="modal-body">
+            <input type="hidden" name="action" value="save_producto">
+            <?php echo csrfField(); ?>
+            <div class="alert alert-info py-2" style="font-size: 0.9rem;">
+                <i class="fa-solid fa-circle-info"></i> Aquí defines el producto en el catálogo. Las cantidades se cargan en el módulo de <b>Compras</b>.
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Código de Barras *</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-barcode"></i></span>
+                    <input type="text" name="codigo_barras" class="form-control" required placeholder="Escanee o escriba" autofocus>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Nombre del Producto *</label>
+                <input type="text" name="nombre" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Precio Venta (USD) *</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" step="0.01" min="0.01" name="precio_venta_usd" class="form-control" required>
+                </div>
+            </div>
+          </div>
+          <div class="modal-footer pb-3">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="fa-solid fa-save"></i> Guardar</button>
+          </div>
+      </form>
     </div>
   </div>
 </div>
