@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     
     if ($proforma_id === 0 || $metodo_id === 0 || ($monto_usd_entregado <= 0 && $monto_bs_entregado <= 0)) {
         setFlash('error', 'Debe especificar monto e instrumento.');
-        header("Location: /proformas");
+        header("Location: /ELPROFE/proformas");
         exit;
     }
     
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $pdo->rollBack();
         setFlash('error', $e->getMessage());
     }
-    header("Location: /proformas");
+    header("Location: /ELPROFE/proformas");
     exit;
 }
 
@@ -158,7 +158,7 @@ require_once '../includes/header.php';
         <h5 class="modal-title fw-bold"><i class="fa-solid fa-hand-holding-dollar"></i> Recibir Pago / Abono Parcial</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="POST" action="/proformas" id="form-abono">
+      <form method="POST" action="/ELPROFE/proformas" id="form-abono">
           <div class="modal-body p-4">
             <input type="hidden" name="action" value="registrar_abono">
             <input type="hidden" name="proforma_id" id="modal-abono-id">

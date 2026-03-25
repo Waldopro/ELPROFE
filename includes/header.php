@@ -22,7 +22,7 @@ if (!defined('NO_LOGIN_REQUIRED')) {
     <!-- SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="/ELPROFE/assets/css/style.css">
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -30,37 +30,37 @@ if (!defined('NO_LOGIN_REQUIRED')) {
 <!-- Navbar para vista logueada -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="/dashboard.php"><i class="fa-solid fa-graduation-cap"></i> ELPROFE</a>
+    <a class="navbar-brand fw-bold" href="/ELPROFE/dashboard.php"><i class="fa-solid fa-graduation-cap"></i> ELPROFE</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav me-auto">
         <li class="nav-item">
-          <a class="nav-link" href="/dashboard"><i class="fa-solid fa-house"></i> Inicio (F1)</a>
+          <a class="nav-link" href="/ELPROFE/dashboard"><i class="fa-solid fa-house"></i> Inicio (F1)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/ventas"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
+          <a class="nav-link" href="/ELPROFE/ventas"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/proformas"><i class="fa-solid fa-file-invoice"></i> Cobranza (Fiados)</a>
+          <a class="nav-link" href="/ELPROFE/proformas"><i class="fa-solid fa-file-invoice"></i> Cobranza (Fiados)</a>
         </li>
         <?php if (isAdmin()): ?>
         <li class="nav-item">
-          <a class="nav-link" href="/inventario"><i class="fa-solid fa-boxes-stacked"></i> Inventario (F3)</a>
+          <a class="nav-link" href="/ELPROFE/inventario"><i class="fa-solid fa-boxes-stacked"></i> Inventario (F3)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/compras"><i class="fa-solid fa-truck-fast"></i> Compras (F4)</a>
+          <a class="nav-link" href="/ELPROFE/compras"><i class="fa-solid fa-truck-fast"></i> Compras (F4)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/proveedores"><i class="fa-solid fa-truck-field"></i> Proveedores</a>
+          <a class="nav-link" href="/ELPROFE/proveedores"><i class="fa-solid fa-truck-field"></i> Proveedores</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/caja"><i class="fa-solid fa-cash-register"></i> Auditoría Caja</a>
+          <a class="nav-link" href="/ELPROFE/caja"><i class="fa-solid fa-cash-register"></i> Auditoría Caja</a>
         </li>
         <?php endif; ?>
         <li class="nav-item">
-          <a class="nav-link" href="/clientes"><i class="fa-solid fa-users"></i> Clientes</a>
+          <a class="nav-link" href="/ELPROFE/clientes"><i class="fa-solid fa-users"></i> Clientes</a>
         </li>
       </ul>
       <div class="d-flex align-items-center">
@@ -81,7 +81,7 @@ if (!defined('NO_LOGIN_REQUIRED')) {
             <i class="fa-solid fa-user-circle fa-lg"></i> <?php echo htmlspecialchars($_SESSION['user_name']); ?>
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="/logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</a></li>
+            <li><a class="dropdown-item" href="/ELPROFE/logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</a></li>
           </ul>
         </div>
       </div>

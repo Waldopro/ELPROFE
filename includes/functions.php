@@ -4,7 +4,7 @@ session_start();
 
 function checkLogin() {
     if (!isset($_SESSION['user_id'])) {
-        header("Location: /");
+        header("Location: /ELPROFE/");
         exit;
     }
 }

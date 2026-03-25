@@ -78,9 +78,9 @@ require_once 'includes/header.php';
                    </div>
                </div>
                <div class="d-grid gap-2 mt-auto">
-                   <a href="/ventas" class="btn btn-light fw-bold text-primary shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nueva Proforma (F2)</a>
+                   <a href="/ELPROFE/ventas" class="btn btn-light fw-bold text-primary shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nueva Proforma (F2)</a>
                    <?php if (isAdmin()): ?>
-                   <a href="/compras" class="btn btn-outline-light"><i class="fa-solid fa-truck"></i> Registrar Compra</a>
+                   <a href="/ELPROFE/compras" class="btn btn-outline-light"><i class="fa-solid fa-truck"></i> Registrar Compra</a>
                    <?php endif; ?>
                </div>
             </div>

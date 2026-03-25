@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     
     if ($proveedor_id === 0 || empty($productos) || !is_array($productos)) {
         setFlash('error', 'Error: Datos de la compra incompletos.');
-        header("Location: /compras");
+        header("Location: /ELPROFE/compras");
         exit;
     }
     
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         setFlash('error', 'Error crítico procesando compra: ' . $e->getMessage());
     }
     
-    header("Location: /compras");
+    header("Location: /ELPROFE/compras");
     exit;
 }
 
@@ -71,7 +71,7 @@ $prods = $pdo->query("SELECT pr.id, pr.codigo_barras, CONCAT(p.nombre, ' [', pr.
                 <h5 class="fw-bold text-primary"><i class="fa-solid fa-file-invoice-dollar me-2"></i> Ingreso de Mercancía</h5>
             </div>
             
-            <form id="form-compras" method="POST" action="/compras" class="card-body p-4 pt-3">
+            <form id="form-compras" method="POST" action="/ELPROFE/compras" class="card-body p-4 pt-3">
                 <input type="hidden" name="action" value="guardar_compra">
                 <?php echo csrfField(); ?>
                 <input type="hidden" name="compra_data" id="compra_data" value="[]">
@@ -134,7 +134,7 @@ $prods = $pdo->query("SELECT pr.id, pr.codigo_barras, CONCAT(p.nombre, ' [', pr.
                     </div>
                 </div>
                 <div class="text-end mt-2">
-                    <a href="/inventario" class="small text-decoration-none"><i class="fa-solid fa-box-open"></i> Crear nuevo producto en catálogo</a>
+                    <a href="/ELPROFE/inventario" class="small text-decoration-none"><i class="fa-solid fa-box-open"></i> Crear nuevo producto en catálogo</a>
                 </div>
             </div>
         </div>

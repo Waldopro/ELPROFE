@@ -74,7 +74,7 @@ const POS = (() => {
         elements.buscador.on('keyup change', function(e) {
             const q = $(this).val();
             if (q.length >= 2) {
-                $.get('/api/ventas.php', { action: 'buscar_producto', q: q }, function(res) {
+                $.get('/ELPROFE/api/ventas.php', { action: 'buscar_producto', q: q }, function(res) {
                     elements.resultados.empty().show();
                     if(res.length > 0) {
                         res.forEach(prod => {
@@ -108,7 +108,7 @@ const POS = (() => {
         // Escuchar el evento de escaner global
         $(document).on('barcodeScanned', function(e, code) {
             if(code.length >= 2) {
-                $.get('/api/ventas.php', { action: 'buscar_producto', q: code }, function(res) {
+                $.get('/ELPROFE/api/ventas.php', { action: 'buscar_producto', q: code }, function(res) {
                     if(res.length === 1) {
                         addToCart(res[0]); // Autoseleccionar si hay match exacto
                         elements.buscador.val('');
@@ -203,7 +203,7 @@ const POS = (() => {
         elements.clienteCedula.on('blur', function() {
             const rif = $(this).val();
             if(rif && rif !== 'V-00000000') {
-                $.get('/api/ventas.php', {action: 'buscar_cliente', q: rif}, function(res) {
+                $.get('/ELPROFE/api/ventas.php', {action: 'buscar_cliente', q: rif}, function(res) {
                     if(res.success) {
                         currentClienteId = res.cliente.id;
                         elements.clienteNombre.val(res.cliente.nombre + ' ' + res.cliente.apellido).prop('disabled', true);
@@ -225,7 +225,7 @@ const POS = (() => {
             Swal.fire('Atención', 'El carrito está vacío', 'warning'); return;
         }
         
-        $.post('/api/ventas.php', {
+        $.post('/ELPROFE/api/ventas.php', {
             action: 'procesar_proforma',
             tipo: tipo,
             cliente_id: currentClienteId,

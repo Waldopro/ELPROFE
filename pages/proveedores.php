@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
     }
-    header("Location: /proveedores");
+    header("Location: /ELPROFE/proveedores");
     exit;
 }
 ?>
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         <h5 class="modal-title fw-bold">Registrar Proveedor</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form method="POST" action="/proveedores">
+      <form method="POST" action="/ELPROFE/proveedores">
           <div class="modal-body">
             <input type="hidden" name="action" value="save_proveedor">
             <?php echo csrfField(); ?>

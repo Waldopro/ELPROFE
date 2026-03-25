@@ -116,7 +116,7 @@ $(document).ready(function() {
         }).then((result) => {
             if(result.isConfirmed) {
                 const nuevaTasa = parseFloat(result.value);
-                $.post('/api/config.php', { action: 'update_tasa', tasa: nuevaTasa }, function(res) {
+                $.post('/ELPROFE/api/config.php', { action: 'update_tasa', tasa: nuevaTasa }, function(res) {
                     if(res.success) {
                         $('#tasa-actual').text(nuevaTasa.toFixed(2));
                         Swal.fire('Tasa Actualizada', 'La tasa de cambio se actualizó correctamente.', 'success').then(() => {

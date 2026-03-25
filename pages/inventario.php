@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             setFlash('error', 'Error al crear producto: ' . $e->getMessage());
         }
     }
-    header("Location: /inventario");
+    header("Location: /ELPROFE/inventario");
     exit;
 }
 
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
     }
-    header("Location: /inventario");
+    header("Location: /ELPROFE/inventario");
     exit;
 }
 
@@ -66,7 +66,7 @@ require_once '../includes/header.php';
         <button class="btn btn-primary me-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalPresentacion">
             <i class="fa-solid fa-barcode me-1"></i> 2. Añadir Presentación
         </button>
-        <a href="/compras" class="btn btn-outline-primary shadow-sm"><i class="fa-solid fa-truck-arrow-right me-1"></i> Comprar Mercancía</a>
+        <a href="/ELPROFE/compras" class="btn btn-outline-primary shadow-sm"><i class="fa-solid fa-truck-arrow-right me-1"></i> Comprar Mercancía</a>
     </div>
 </div>
 
@@ -174,7 +174,7 @@ require_once '../includes/header.php';
         <h5 class="modal-title fw-bold text-primary">1. Agregar Producto Base</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form method="POST" action="/inventario">
+      <form method="POST" action="/ELPROFE/inventario">
           <div class="modal-body">
             <input type="hidden" name="action" value="save_producto">
             <?php echo csrfField(); ?>
@@ -201,7 +201,7 @@ require_once '../includes/header.php';
         <h5 class="modal-title fw-bold text-primary">2. Añadir Presentación a Producto</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form method="POST" action="/inventario">
+      <form method="POST" action="/ELPROFE/inventario">
           <div class="modal-body">
             <input type="hidden" name="action" value="save_presentacion">
             <?php echo csrfField(); ?>
@@ -315,7 +315,7 @@ $(document).ready(function() {
         }
         var formData = new FormData($('#form-foto')[0]);
         $.ajax({
-            url: '/api/producto.php', type: 'POST', data: formData, contentType: false, processData: false,
+            url: '/ELPROFE/api/producto.php', type: 'POST', data: formData, contentType: false, processData: false,
             beforeSend: () => { Swal.showLoading(); },
             success: (res) => {
                 if(res.success) Swal.fire('Éxito', 'Foto subida', 'success').then(() => location.reload());

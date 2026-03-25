@@ -1,9 +1,9 @@
 RewriteEngine On
-RewriteBase /
+RewriteBase /ELPROFE/
 
-# Redirigir index.php a la raíz
-RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /index\.php\ HTTP/
-RewriteRule ^index\.php$ / [R=301,L]
+# Redirigir index.php a la raíz de ELPROFE
+RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /ELPROFE/index\.php\ HTTP/
+RewriteRule ^index\.php$ /ELPROFE/ [R=301,L]
 
 # Evitar listar directorios
 Options -Indexes

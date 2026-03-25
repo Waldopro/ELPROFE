@@ -155,6 +155,6 @@ require_once '../includes/header.php';
   </div>
 </div>
 
-<script src="/assets/js/pos.js"></script>
+<script src="/ELPROFE/assets/js/pos.js"></script>
 
 <?php require_once '../includes/footer.php'; ?>
