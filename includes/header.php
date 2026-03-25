@@ -42,6 +42,7 @@ if (!defined('NO_LOGIN_REQUIRED')) {
         <li class="nav-item">
           <a class="nav-link" href="/ventas"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
         </li>
+        <?php if (isAdmin()): ?>
         <li class="nav-item">
           <a class="nav-link" href="/inventario"><i class="fa-solid fa-boxes-stacked"></i> Inventario (F3)</a>
         </li>
@@ -49,17 +50,20 @@ if (!defined('NO_LOGIN_REQUIRED')) {
           <a class="nav-link" href="/compras"><i class="fa-solid fa-truck-fast"></i> Compras (F4)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/clientes"><i class="fa-solid fa-users"></i> Clientes</a>
+          <a class="nav-link" href="/caja"><i class="fa-solid fa-cash-register"></i> Auditoría Caja</a>
         </li>
+        <?php endif; ?>
         <li class="nav-item">
-          <a class="nav-link" href="/caja"><i class="fa-solid fa-cash-register"></i> Caja</a>
+          <a class="nav-link" href="/clientes"><i class="fa-solid fa-users"></i> Clientes</a>
         </li>
       </ul>
       <div class="d-flex align-items-center">
         <!-- Indicador de Tasa -->
         <span class="badge bg-light text-dark me-3 p-2 fs-6">
             Tasa: Bs. <span id="tasa-actual"><?php echo number_format(getConfig('tasa_usd_bs', $pdo), 2); ?></span>
+            <?php if (isAdmin()): ?>
             <button class="btn btn-sm btn-outline-dark ms-2 pt-0 pb-0 px-1" title="Actualizar Tasa" onclick="actualizarTasa()"><i class="fa-solid fa-pencil"></i></button>
+            <?php endif; ?>
         </span>
         <!-- Theme Toggle -->
         <button class="btn btn-outline-light me-3" id="theme-toggle" title="Cambiar Tema (Alt+T)">

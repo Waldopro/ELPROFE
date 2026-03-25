@@ -27,8 +27,9 @@ require_once 'includes/header.php';
 </div>
 
 <div class="row g-4 mb-4">
+    <?php if (isAdmin()): ?>
     <div class="col-md-4">
-        <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+        <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); mb-3">
             <div class="card-body d-flex flex-column justify-content-between p-4">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <h5 class="card-title fw-bold mb-0">Ventas Hoy (USD)</h5>
@@ -56,6 +57,16 @@ require_once 'includes/header.php';
             </div>
         </div>
     </div>
+    <?php else: ?>
+    <div class="col-md-8">
+        <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
+            <div class="card-body p-4 d-flex flex-column justify-content-center">
+                <h3 class="fw-bold mb-2">Turno Operativo de Caja</h3>
+                <p class="mb-0 text-white-50">Mantén el registro claro de tus cobros. Usa <kbd class="text-dark bg-light px-2">F2</kbd> en cualquier momento para ir directamente al punto de venta y atender a un cliente.</p>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     
     <div class="col-md-4">
         <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
@@ -67,8 +78,10 @@ require_once 'includes/header.php';
                    </div>
                </div>
                <div class="d-grid gap-2 mt-auto">
-                   <a href="pages/ventas.php" class="btn btn-light fw-bold text-primary shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nueva Proforma (F2)</a>
-                   <a href="pages/compras.php" class="btn btn-outline-light"><i class="fa-solid fa-truck"></i> Registrar Compra</a>
+                   <a href="/ventas" class="btn btn-light fw-bold text-primary shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nueva Proforma (F2)</a>
+                   <?php if (isAdmin()): ?>
+                   <a href="/compras" class="btn btn-outline-light"><i class="fa-solid fa-truck"></i> Registrar Compra</a>
+                   <?php endif; ?>
                </div>
             </div>
         </div>

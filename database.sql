@@ -63,10 +63,27 @@ CREATE TABLE compra_detalles (
     FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE RESTRICT
 );
 
+-- 2.5 SESIONES DE CAJA (Control estricto de turnos operacionales)
+CREATE TABLE sesiones_caja (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    fecha_apertura DATETIME DEFAULT CURRENT_TIMESTAMP,
+    monto_inicial_usd DECIMAL(12, 2) DEFAULT 0.00,
+    monto_inicial_bs DECIMAL(12, 2) DEFAULT 0.00,
+    fecha_cierre DATETIME NULL,
+    monto_cierre_usd_declarado DECIMAL(12, 2) DEFAULT NULL,
+    monto_cierre_bs_declarado DECIMAL(12, 2) DEFAULT NULL,
+    notas_cierre TEXT,
+    estado ENUM('ABIERTA', 'CERRADA') DEFAULT 'ABIERTA',
+    -- FOREIGN KEY (usuario_id) REFERENCES usuarios(id) se asume, la tabla usuarios se crea al final.
+    KEY idx_sesion_estado (estado)
+);
+
 -- 4. VENTAS (PROFORMAS Y FACTURAS)
 CREATE TABLE proformas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     cliente_id INT NOT NULL,
+    cajero_id INT NOT NULL,
     tipo_documento ENUM('PROFORMA', 'FACTURA') DEFAULT 'PROFORMA',
     factura_numero VARCHAR(50) UNIQUE,
     fecha_emision DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -75,6 +92,7 @@ CREATE TABLE proformas (
     saldo_pendiente_usd DECIMAL(12, 2) NOT NULL,
     estado ENUM('PENDIENTE', 'PARCIAL', 'PAGADO', 'ANULADO') DEFAULT 'PENDIENTE',
     FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT
+    -- FOREIGN KEY (cajero_id) REFERENCES usuarios(id)
 );
 
 CREATE TABLE proforma_detalles (
@@ -119,6 +137,7 @@ CREATE TABLE movimientos_caja (
     monto_usd DECIMAL(12, 2) DEFAULT 0.00,
     referencia_id INT,
     referencia_tabla VARCHAR(50),
+    sesion_caja_id INT NULL,
     FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id) ON DELETE RESTRICT
 );
 
@@ -149,5 +168,21 @@ INSERT INTO metodos_pago (nombre, moneda_base) VALUES
 ('Pago Movil VES', 'VES'),
 ('Zelle USD', 'USD');
 
--- Usuario admin por defecto: admin / 123456
-INSERT INTO usuarios (username, password, nombre, rol) VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador', 'ADMIN');
+-- Usuario admin por defecto y cajero de pruebas: password = 123456
+INSERT INTO usuarios (username, password, nombre, rol) VALUES 
+('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Global', 'ADMIN'),
+('caja01', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Cajero Principal', 'CAJERO');
+
+-- Añadir restricciones FK que faltaban por orden de creación de tablas
+ALTER TABLE proformas ADD CONSTRAINT fk_proforma_cajero FOREIGN KEY (cajero_id) REFERENCES usuarios(id) ON DELETE RESTRICT;
+ALTER TABLE sesiones_caja ADD CONSTRAINT fk_sesion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT;
+ALTER TABLE movimientos_caja ADD CONSTRAINT fk_movimiento_sesion FOREIGN KEY (sesion_caja_id) REFERENCES sesiones_caja(id) ON DELETE RESTRICT;
+
+-- ÍNDICES ESTRATÉGICOS PARA VELOCIDAD Y ROBUSTEZ EN CONSULTAS LAAAAAAAARGAS
+CREATE INDEX idx_proformas_estado ON proformas(estado);
+CREATE INDEX idx_proformas_fecha ON proformas(fecha_emision);
+CREATE INDEX idx_proformas_cliente ON proformas(cliente_id);
+CREATE INDEX idx_compras_fecha ON compras(fecha);
+CREATE INDEX idx_movimientos_fecha ON movimientos_caja(fecha);
+CREATE INDEX idx_productos_codigo ON productos(codigo_barras);
+

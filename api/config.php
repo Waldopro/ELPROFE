@@ -5,6 +5,7 @@ require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
 checkLogin();
+restrictAdmin();
 
 $action = $_POST['action'] ?? '';
 

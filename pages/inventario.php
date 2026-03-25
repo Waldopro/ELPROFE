@@ -2,6 +2,7 @@
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
 checkLogin();
+restrictAdmin();
 require_once '../includes/header.php';
 ?>
 

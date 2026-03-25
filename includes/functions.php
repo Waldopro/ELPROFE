@@ -4,8 +4,21 @@ session_start();
 
 function checkLogin() {
     if (!isset($_SESSION['user_id'])) {
-        header("Location: login.php");
+        header("Location: /");
         exit;
+    }
+}
+
+// Verificar si es administrador
+function isAdmin() {
+    return isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'ADMIN';
+}
+
+// Bloquear el paso a cajeros
+function restrictAdmin() {
+    if (!isAdmin()) {
+        http_response_code(403);
+        die("Acceso Denegado: Esta zona es exclusiva para administradores.");
     }
 }
 
