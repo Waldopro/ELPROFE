@@ -343,12 +343,32 @@ const POS = (() => {
             pagos: JSON.stringify(arrayPagos)
         }, function(res) {
             if(res.success) {
+                // Generar URLs para comprobantes
+                const urlTicket = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}`;
+                const urlWa = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}&wa=1`;
+                const urlPdf = `/ELPROFE/pages/nota_entrega.php?id=${res.proforma_id}`;
+                
                 Swal.fire({
                     title: '¡Operación Exitosa!',
-                    text: 'Proforma registrada correctamente. ID #' + res.proforma_id,
+                    html: `
+                        <p class="mb-4">Proforma registrada correctamente. ID #<strong>${res.proforma_id}</strong></p>
+                        <div class="d-grid gap-2">
+                            <a href="${urlTicket}&print=1" target="_blank" class="btn btn-primary fw-bold py-2 shadow-sm">
+                                <i class="fa-solid fa-receipt me-2"></i> Imprimir Ticket Térmico
+                            </a>
+                            <a href="${urlWa}" target="_blank" class="btn btn-success fw-bold py-2 shadow-sm">
+                                <i class="fa-brands fa-whatsapp me-2"></i> Compartir WhatsApp
+                            </a>
+                            <a href="${urlPdf}" target="_blank" class="btn btn-warning fw-bold py-2 shadow-sm">
+                                <i class="fa-solid fa-file-pdf me-2"></i> Ver Factura PDF (A4)
+                            </a>
+                        </div>
+                    `,
                     icon: 'success',
-                    timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-cart-plus"></i> Nueva Venta',
+                    confirmButtonColor: '#6c757d',
+                    allowOutsideClick: false
                 }).then(() => {
                     cart = [];
                     currentClienteId = 0;
