@@ -66,22 +66,7 @@ $monto_iva = $total_con_iva - $base_imponible;
 
 $es_whatsapp = isset($_GET['wa']);
 if ($es_whatsapp) {
-    // Si piden compartir por whatsapp nativo, redireccionar a la API de whatsapp con el texto armado
-    $texto = "*====== $empresa_nombre ======*\n";
-    $texto .= "RIF $empresa_rif\n";
-    $texto .= "CANT | DESCRIPCION | TOTAL(Bs)\n";
-    foreach($detalles as $d) {
-        $st = ($d['subtotal_usd'] * $tasa_dia);
-        $texto .= round($d['cantidad'],1) . " x " . $d['producto_nombre'] . " = Bs." . number_format($st,2). "\n";
-    }
-    $texto .= "--------------------------\n";
-    $texto .= "TOTAL FACTURA (Bs) = " . number_format($total_con_iva, 2) . "\n";
-    $texto .= "TOTAL FACTURA ($)  = " . number_format($proforma['total_usd'], 2) . "\n";
-    $texto .= "Gracias por su compra!\n";
-    
-    $url = "https://wa.me/?text=" . urlencode($texto);
-    header("Location: $url");
-    exit;
+    // Ya no lo procesamos por texto puro, delegamos a Javascript con auto-launch
 }
 ?>
 <!DOCTYPE html>
@@ -114,9 +99,9 @@ if ($es_whatsapp) {
 <body>
 
 <div class="no-print center" style="margin-bottom: 20px;">
-    <button class="btn" onclick="window.print()">🖨️ Imprimir Ticket</button>
-    <a href="?id=<?php echo $id; ?>&wa=1" target="_blank" class="btn btn-success">📱 Enviar Texto WP</a>
-    <a href="nota_entrega.php?id=<?php echo $id; ?>" class="btn btn-warning">📄 Ver Nota Entrega (PDF)</a>
+    <button class="btn" onclick="window.print()"><i class="fa-solid fa-print"></i> 🖨️ Imprimir Ticket</button>
+    <button class="btn btn-success" id="btn-wa" onclick="shareAsImage(<?php echo $id; ?>, 'btn-wa', 'ticket')">🖼️ Capturar WA(Imagen)</button>
+    <a href="nota_entrega.php?id=<?php echo $id; ?>" class="btn btn-warning">📄 Ver Nota Entrega</a>
 </div>
 
 <div class="center bold">
@@ -225,9 +210,72 @@ if ($es_whatsapp) {
 </div>
 
 <script>
-    // Si viene parametro print=1 se imprime solo
     if(new URLSearchParams(window.location.search).has('print')) {
         setTimeout(() => { window.print(); }, 500);
+    }
+    if(new URLSearchParams(window.location.search).has('wa')) {
+        setTimeout(() => { shareAsImage(<?php echo $id; ?>, 'btn-wa', 'ticket'); }, 500);
+    }
+
+    async function shareAsImage(id, btnId, tipo) {
+        let btn = document.getElementById(btnId);
+        let origHtml = btn.innerHTML;
+        btn.innerHTML = '⏳ Proc...';
+        btn.disabled = true;
+
+        try {
+            if(typeof html2canvas === 'undefined') {
+                await new Promise((resolve) => {
+                    let script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                    script.onload = resolve;
+                    document.head.appendChild(script);
+                });
+            }
+
+            // Ocultar area de botones
+            let noPrint = document.querySelector('.no-print');
+            noPrint.style.display = 'none';
+
+            let canvas = await html2canvas(document.body, { backgroundColor: '#ffffff', scale: 2 });
+            noPrint.style.display = 'block';
+
+            let base64 = canvas.toDataURL('image/png');
+
+            // Guardar en backend (Guardado Perpetuo exigido)
+            let formData = new FormData();
+            formData.append('id', id);
+            formData.append('tipo', tipo);
+            formData.append('image', base64);
+            
+            let res = await fetch('/ELPROFE/api/guardar_ticket.php', { method: 'POST', body: formData });
+            let json = await res.json();
+            
+            if(!json.success) throw new Error(json.message);
+
+            canvas.toBlob(async (blob) => {
+                let file = new File([blob], `${tipo}_${id}.png`, { type: 'image/png' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    // Si el Dispositivo soporta compartir imagenes (Moviles/Chrome moderno)
+                    await navigator.share({
+                        title: `${tipo.toUpperCase()} #${id}`,
+                        text: 'Comprobante Electrónico Adjunto',
+                        files: [file]
+                    });
+                } else {
+                    // Si es PC Antigua y no tiene Web Share, redirigir a Wa.me con URL pública.
+                    let wa_url = "https://wa.me/?text=" + encodeURIComponent("Saludos! Adjunto comprobante virtual en este link perpetuo:\n\n" + json.url);
+                    window.open(wa_url, "_blank");
+                }
+            });
+
+        } catch(e) {
+            alert('Error al generar la imagen. ' + e.message);
+        } finally {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
     }
 </script>
 </body>

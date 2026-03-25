@@ -84,8 +84,11 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
 </head>
 <body>
 
-<button onclick="window.print()" class="no-print btn-print">🖨️ Imprimir PDF / A4</button>
-
+<div class="no-print" style="margin: 0 auto 20px auto; max-width: 800px; text-align: center; display: flex; gap: 10px; justify-content: center;">
+    <button onclick="window.print()" class="btn-print" style="margin: 0; flex: 1; max-width: 250px;">🖨️ Imprimir PDF / A4</button>
+    <button id="btn-wa" onclick="shareAsImage(<?php echo $id; ?>, 'btn-wa', 'nota_entrega')" class="btn-print" style="margin: 0; flex: 1; max-width: 250px; background: #198754;">📱 Compartir Imagen WA</button>
+    <a href="ticket.php?id=<?php echo $id; ?>" class="btn-print" style="margin: 0; flex: 1; max-width: 250px; background: #0dcaf0; color: #000;">🧾 Ver Ticket (58mm)</a>
+</div>
 <div class="page">
     <div class="header">
         <div class="header-logo">LOGO</div>
@@ -193,6 +196,64 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
 <script>
     if(new URLSearchParams(window.location.search).has('print')) {
         setTimeout(() => { window.print(); }, 500);
+    }
+
+    async function shareAsImage(id, btnId, tipo) {
+        let btn = document.getElementById(btnId);
+        let origHtml = btn.innerHTML;
+        btn.innerHTML = '⏳ Procesando...';
+        btn.disabled = true;
+
+        try {
+            if(typeof html2canvas === 'undefined') {
+                await new Promise((resolve) => {
+                    let script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                    script.onload = resolve;
+                    document.head.appendChild(script);
+                });
+            }
+
+            // Ocultar area de botones superior
+            let noPrint = document.querySelector('.no-print');
+            noPrint.style.display = 'none';
+
+            let canvas = await html2canvas(document.body, { backgroundColor: '#ffffff', scale: 2 });
+            noPrint.style.display = 'flex'; // restaurar
+
+            let base64 = canvas.toDataURL('image/png');
+
+            let formData = new FormData();
+            formData.append('id', id);
+            formData.append('tipo', tipo);
+            formData.append('image', base64);
+            
+            let res = await fetch('/ELPROFE/api/guardar_ticket.php', { method: 'POST', body: formData });
+            let json = await res.json();
+            
+            if(!json.success) throw new Error(json.message);
+
+            canvas.toBlob(async (blob) => {
+                let file = new File([blob], `${tipo}_${id}.png`, { type: 'image/png' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: `Documento #${id}`,
+                        text: 'Adjunto Documento Mercantil',
+                        files: [file]
+                    });
+                } else {
+                    let wa_url = "https://wa.me/?text=" + encodeURIComponent("Saludos! Adjunto comprobante virtual en este link:\n\n" + json.url);
+                    window.open(wa_url, "_blank");
+                }
+            });
+
+        } catch(e) {
+            alert('Error al generar la imagen. ' + e.message);
+        } finally {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
     }
 </script>
 </body>

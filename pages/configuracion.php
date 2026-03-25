@@ -196,6 +196,56 @@ require_once '../includes/header.php';
     </div>
 </div>
 
+<div class="row">
+    <!-- Pruebas de Sistema -->
+    <div class="col-lg-12 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title fw-bold mb-0"><i class="fa-solid fa-vial-circle-check"></i> Pruebas de Sistema (Desarrollador)</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Utiliza estos enlaces generados dinámicamente con las últimas ventas registradas en base de datos para probar la renderización y compartición por WhatsApp (Imagen).</p>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th># Doc</th>
+                                <th>Fecha</th>
+                                <th>Total ($)</th>
+                                <th>Pruebas (Impresión y WhatsApp HW)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $stmtProfs = $pdo->query("SELECT id, fecha_emision, total_usd FROM proformas ORDER BY id DESC LIMIT 5");
+                            $profs = $stmtProfs->fetchAll();
+                            
+                            if(empty($profs)) {
+                                echo "<tr><td colspan='4' class='text-center text-muted'>No hay proformas/ventas en el sistema para probar. Realiza una venta en el POS primero.</td></tr>";
+                            } else {
+                                foreach($profs as $pr):
+                            ?>
+                            <tr>
+                                <td><strong>#<?php echo $pr['id']; ?></strong></td>
+                                <td><?php echo date('d-m-Y H:i', strtotime($pr['fecha_emision'])); ?></td>
+                                <td>$<?php echo number_format($pr['total_usd'], 2); ?></td>
+                                <td>
+                                    <a href="/ELPROFE/pages/ticket.php?id=<?php echo $pr['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-receipt"></i> Ticket Térmico</a>
+                                    <a href="/ELPROFE/pages/nota_entrega.php?id=<?php echo $pr['id']; ?>" target="_blank" class="btn btn-sm btn-outline-warning"><i class="fa-solid fa-file-pdf"></i> PDF / A4</a>
+                                </td>
+                            </tr>
+                            <?php 
+                                endforeach; 
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 $(document).ready(function() {
     $('#btn-sync-bcv').click(function() {
