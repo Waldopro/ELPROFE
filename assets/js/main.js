@@ -28,7 +28,18 @@ $(document).ready(function() {
         }
     }
 
-    // Keyboard Shortcuts
+    // Configurar AJAX para incluir CSRF
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        }
+    });
+
+    // Barcode scanner buffer global
+    let barcodeBuffer = '';
+    let barcodeTimer = null;
+
+    // Keyboard Shortcuts & Barcode scanner global listener
     $(document).on('keydown', function(e) {
         // Alt + T: Toggle Theme
         if (e.altKey && e.key.toLowerCase() === 't') {
@@ -36,26 +47,50 @@ $(document).ready(function() {
             themeBtn.click();
         }
         
-        // F-keys navigation (only if not focused on inputs)
+        // Barcode Scanner Listener:
+        // Los escáneres escriben muy rápido y terminan con Enter.
         const isInputFocus = $(e.target).is('input, textarea, select');
+        
+        // Si no es un atajo especial, capturamos para el barcode si es que escribe
+        if (!e.altKey && !e.ctrlKey && !e.metaKey && e.key.length === 1) {
+            barcodeBuffer += e.key;
+            clearTimeout(barcodeTimer);
+            barcodeTimer = setTimeout(() => { barcodeBuffer = ''; }, 100); // 100ms timeout para reiniciar buffer
+        }
+        
+        if (e.key === 'Enter' && barcodeBuffer.length >= 3) {
+            // Un barcode entero fue leido por el lector
+            e.preventDefault();
+            const scannedCode = barcodeBuffer;
+            barcodeBuffer = ''; // reset
+            clearTimeout(barcodeTimer);
+            
+            // Si estamos en ventas o compras y hay un input de busqueda
+            const buscador = $('#buscador-producto');
+            if (buscador.length > 0) {
+                buscador.val(scannedCode).trigger('change');
+                // Trigger evento personalizado para que ventas.js lo capture
+                $(document).trigger('barcodeScanned', [scannedCode]);
+            }
+        }
         
         if (!isInputFocus) {
             switch(e.key) {
                 case 'F1':
                     e.preventDefault();
-                    window.location.href = '/dashboard.php';
+                    window.location.href = '/dashboard';
                     break;
                 case 'F2':
                     e.preventDefault();
-                    window.location.href = '/pages/ventas.php';
+                    window.location.href = '/ventas';
                     break;
                 case 'F3':
                     e.preventDefault();
-                    window.location.href = '/pages/inventario.php';
+                    window.location.href = '/inventario';
                     break;
                 case 'F4':
                     e.preventDefault();
-                    window.location.href = '/pages/compras.php';
+                    window.location.href = '/compras';
                     break;
             }
         }

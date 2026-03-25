@@ -10,6 +10,8 @@ if (isset($_SESSION['user_id'])) {
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken($_POST['csrf_token'] ?? '');
+    
     $user = $_POST['username'] ?? '';
     $pass = $_POST['password'] ?? '';
     
@@ -45,10 +47,11 @@ require_once 'includes/header.php';
                 </div>
                 
                 <?php if($error): ?>
-                    <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> <?php echo htmlspecialchars($error); ?></div>
+                    <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> <?php echo e($error); ?></div>
                 <?php endif; ?>
                 
                 <form method="POST" action="">
+                    <?php echo csrfField(); ?>
                     <div class="form-floating mb-3">
                         <input type="text" class="form-control" id="username" name="username" placeholder="Usuario" required autofocus>
                         <label for="username"><i class="fa-solid fa-user"></i> Usuario</label>

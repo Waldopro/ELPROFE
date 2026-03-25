@@ -13,6 +13,7 @@ if (!defined('NO_LOGIN_REQUIRED')) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo generateCsrfToken(); ?>">
     <title>ELPROFE - Sistema POS</title>
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -36,22 +37,22 @@ if (!defined('NO_LOGIN_REQUIRED')) {
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav me-auto">
         <li class="nav-item">
-          <a class="nav-link" href="/dashboard.php"><i class="fa-solid fa-house"></i> Inicio (F1)</a>
+          <a class="nav-link" href="/dashboard"><i class="fa-solid fa-house"></i> Inicio (F1)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/pages/ventas.php"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
+          <a class="nav-link" href="/ventas"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/pages/inventario.php"><i class="fa-solid fa-boxes-stacked"></i> Inventario (F3)</a>
+          <a class="nav-link" href="/inventario"><i class="fa-solid fa-boxes-stacked"></i> Inventario (F3)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/pages/compras.php"><i class="fa-solid fa-truck-fast"></i> Compras (F4)</a>
+          <a class="nav-link" href="/compras"><i class="fa-solid fa-truck-fast"></i> Compras (F4)</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/pages/clientes.php"><i class="fa-solid fa-users"></i> Clientes</a>
+          <a class="nav-link" href="/clientes"><i class="fa-solid fa-users"></i> Clientes</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/pages/caja.php"><i class="fa-solid fa-cash-register"></i> Caja</a>
+          <a class="nav-link" href="/caja"><i class="fa-solid fa-cash-register"></i> Caja</a>
         </li>
       </ul>
       <div class="d-flex align-items-center">
@@ -70,7 +71,7 @@ if (!defined('NO_LOGIN_REQUIRED')) {
             <i class="fa-solid fa-user-circle fa-lg"></i> <?php echo htmlspecialchars($_SESSION['user_name']); ?>
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="/logout.php"><i class="fa-solid fa-sign-out-alt"></i> Salir</a></li>
+            <li><a class="dropdown-item" href="/logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</a></li>
           </ul>
         </div>
       </div>

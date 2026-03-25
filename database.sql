@@ -32,6 +32,7 @@ CREATE TABLE productos (
     codigo_barras VARCHAR(50) UNIQUE,
     nombre VARCHAR(150) NOT NULL,
     descripcion TEXT,
+    foto VARCHAR(255) DEFAULT NULL,
     stock_actual DECIMAL(10, 2) DEFAULT 0.00,
     costo_promedio_usd DECIMAL(12, 2) DEFAULT 0.00,
     precio_venta_usd DECIMAL(12, 2) NOT NULL,
