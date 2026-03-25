@@ -20,6 +20,14 @@ require_once '../includes/header.php';
   </li>
 </ul>
 
+<div class="alert alert-secondary border-0 shadow-sm mb-4">
+    <h6 class="fw-bold mb-1"><i class="fa-solid fa-circle-info text-primary"></i> Leyenda de Monitoreo Organizacional:</h6>
+    <ul class="small mb-0 text-muted">
+        <li><strong>Log de Accesos:</strong> Vigila los intentos de entrar a tu sistema. Si ves un <i class="fa-solid fa-triangle-exclamation text-danger"></i> significa que alguien probó contraseñas incorrectas para intentar vulnerar tu caja.</li>
+        <li><strong>Traza de Actividad:</strong> Registra movimientos exactos de dinero o inventario (Emitir proformas, abonar, anular ventas). El módulo <kbd class="bg-primary">SISTEMA</kbd> es interno, mientras que <kbd class="bg-success">POS</kbd> o <kbd class="bg-dark">INVENTARIO</kbd> son movimientos de tienda.</li>
+    </ul>
+</div>
+
 <div class="tab-content" id="pills-tabContent">
   
   <!-- Tab Accesos -->
@@ -45,7 +53,7 @@ require_once '../includes/header.php';
                               $icon = $row['exito'] ? 'fa-check-circle' : 'fa-triangle-exclamation';
                           ?>
                           <tr>
-                              <td class="ps-4 text-muted"><i class="fa-regular fa-clock"></i> <?php echo e($row['fecha']); ?></td>
+                              <td class="ps-4 text-muted"><i class="fa-regular fa-clock"></i> <?php echo e(date('Y-m-d h:i A', strtotime($row['fecha']))); ?></td>
                               <td class="fw-bold"><?php echo e($row['username_intento']); ?></td>
                               <td class="small" style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?php echo e($row['dispositivo']); ?>">
                                   <?php echo e($row['dispositivo']); ?>
@@ -88,7 +96,7 @@ require_once '../includes/header.php';
                           while($row = $stmt2->fetch()):
                           ?>
                           <tr>
-                              <td class="ps-4 text-muted"><i class="fa-regular fa-calendar-days"></i> <?php echo e($row['fecha']); ?></td>
+                              <td class="ps-4 text-muted"><i class="fa-regular fa-calendar-days"></i> <?php echo e(date('Y-m-d h:i A', strtotime($row['fecha']))); ?></td>
                               <td class="fw-bold"><i class="fa-solid fa-user-tag text-muted"></i> <?php echo e($row['username'] ?? 'Sistema/Eliminado'); ?></td>
                               <td><span class="badge bg-primary px-2"><?php echo e($row['modulo']); ?></span></td>
                               <td><span class="badge bg-dark border font-monospace text-warning"><?php echo e($row['accion']); ?></span></td>

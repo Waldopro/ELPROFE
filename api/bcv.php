@@ -11,36 +11,36 @@ if (!isAdmin()) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
     
-    // Obtener HTML del BCV
+    // Usar API de PyDolarVenezuela (Súper estable para entornos locales sin firewalls raros)
     $curl = curl_init();
     curl_setopt_array($curl, [
-        CURLOPT_URL => "https://www.bcv.org.ve/",
+        CURLOPT_URL => "https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv",
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_SSL_VERIFYPEER => false, // Evitar problemas con certificados locales en entornos de prueba
-        CURLOPT_TIMEOUT => 15,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_TIMEOUT => 15
     ]);
     
-    $html = curl_exec($curl);
-    
-    if (curl_errno($curl)) {
-        echo json_encode(['success' => false, 'message' => 'El portal del BCV no responde o tu servidor no tiene salida a internet.']);
-        exit;
-    }
+    $response = curl_exec($curl);
+    $err = curl_error($curl);
     curl_close($curl);
     
-    // Scrapping por Regex amigable
-    if (preg_match('/<div id="dolar".*?>.*?<strong>\s*(.*?)\s*<\/strong>.*?<\/div>/is', $html, $matches)) {
-        $tasa_bruta = trim($matches[1]);
-        $tasa_limpia = str_replace(',', '.', $tasa_bruta);
-        $tasa_float = floatval($tasa_limpia);
+    if ($err) {
+        echo json_encode(['success' => false, 'message' => 'Fallo de conexión. Revisa tu internet.']);
+        exit;
+    }
+    
+    $data = json_decode($response, true);
+    
+    // El formato de pydolar maneja monitors.bcv.price
+    if (isset($data['monitors']['bcv']['price'])) {
+        $tasa_float = floatval($data['monitors']['bcv']['price']);
         
         if ($tasa_float > 0) {
             // Actualizar DB
             $stmt = $pdo->prepare("UPDATE configuracion SET valor = ? WHERE clave = 'tasa_usd_bs'");
             $stmt->execute([$tasa_float]);
             
-            // Garantizar que exista la clave tasa_tipo
+            // Garantizar que exista la clave tasa_tipo e inyectar fecha de ultima sync
             $stmtInsert = $pdo->prepare("INSERT IGNORE INTO configuracion (clave, valor, descripcion) VALUES ('tasa_tipo', 'BCV', 'Tipo')");
             $stmtInsert->execute();
             
@@ -50,11 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode([
                 'success' => true, 
                 'tasa' => $tasa_float, 
-                'message' => 'Tasa extraída y configurada con BCV exitosamente.'
+                'message' => 'Tasa BCV obtenida exitosamente.'
             ]);
             exit;
         }
     }
     
-    echo json_encode(['success' => false, 'message' => 'Falló el parseo de la tasa. Es probable que la estructura del BCV cambiara.']);
+    echo json_encode(['success' => false, 'message' => 'Falló el parseo JSON de la pasarela BCV. Contacte al programador.']);
 }

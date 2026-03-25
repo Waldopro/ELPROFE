@@ -29,7 +29,7 @@ require_once 'includes/header.php';
 <div class="row g-4 mb-4">
     <?php if (isAdmin()): ?>
     <div class="col-md-4">
-        <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); mb-3">
+        <div class="card h-100 border-0 shadow-sm text-bg-success">
             <div class="card-body d-flex flex-column justify-content-between p-4">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <h5 class="card-title fw-bold mb-0">Ventas Hoy (USD)</h5>
@@ -44,16 +44,16 @@ require_once 'includes/header.php';
     </div>
     
     <div class="col-md-4">
-        <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+        <div class="card h-100 border-0 shadow-sm text-bg-warning">
             <div class="card-body d-flex flex-column justify-content-between p-4">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h5 class="card-title fw-bold mb-0">Alertas de Inventario</h5>
+                    <h5 class="card-title fw-bold text-dark mb-0">Alertas de Inventario</h5>
                     <div class="bg-white text-warning rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
                         <i class="fa-solid fa-triangle-exclamation fa-lg"></i>
                     </div>
                 </div>
-                <h1 class="display-5 fw-bolder mb-0"><?php echo $productosBajos; ?></h1>
-                <p class="small text-white-50 mt-2 mb-0">Productos con stock bajo (< 5)</p>
+                <h1 class="display-5 fw-bolder text-dark mb-0"><?php echo $productosBajos; ?></h1>
+                <p class="small text-dark mt-2 mb-0 opacity-75">Productos con stock bajo (< 5)</p>
             </div>
         </div>
     </div>
@@ -69,7 +69,7 @@ require_once 'includes/header.php';
     <?php endif; ?>
     
     <div class="col-md-4">
-        <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+        <div class="card h-100 border-0 shadow-sm text-bg-primary">
             <div class="card-body d-flex flex-column justify-content-between p-4">
                <div class="d-flex align-items-center justify-content-between mb-3">
                    <h5 class="card-title fw-bold mb-0">Accesos Rápidos</h5>
@@ -134,5 +134,19 @@ require_once 'includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+    $(document).ready(function() {
+        <?php if (isAdmin() && getConfig('tasa_tipo', $pdo) === 'BCV'): ?>
+        // Sincronización silenciosa del BCV diara al cargar el dashboard
+        console.log("Comprobando Tasa BCV automáticamente...");
+        $.post('/ELPROFE/api/bcv.php', function(res){
+            if(res.success && res.tasa) {
+                console.log("Tasa BCV verificada/actualizada: " + res.tasa);
+            }
+        });
+        <?php endif; ?>
+    });
+</script>
 
 <?php require_once 'includes/footer.php'; ?>
