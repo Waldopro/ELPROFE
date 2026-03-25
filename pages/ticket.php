@@ -229,7 +229,6 @@ if ($es_whatsapp) {
 </div>
 
 <div class="center" style="margin-top: 15px;">
-    Cálculo referencial a Tasa BCV: <?php echo number_format($tasa_dia, 4, ',', '.'); ?> Bs/$<br><br>
     GRACIAS POR SU COMPRA
 </div>
 

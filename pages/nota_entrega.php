@@ -182,8 +182,7 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
             <table class="border">
                 <tr><td class="td-label">Observaciones:</td></tr>
                 <tr><td style="height: 60px; vertical-align: top;">
-                    * Tasa de Cambio BCV Aplicada: <?php echo number_format($tasa_dia, 4, ',', '.'); ?> Bs/$<br>
-                    * Monto Total Bs: <?php echo number_format($total_con_iva, 2, ',', '.'); ?> Bs
+                    
                 </td></tr>
             </table>
         </div>
@@ -205,15 +204,6 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
         </div>
     </div>
     <div style="clear: both;"></div>
-    
-    <div class="footer-signatures">
-        <div>AUTORIZADO POR: <span class="signature-line"></span></div>
-        <div>RECIBIDO POR / C.I.: <span class="signature-line"></span></div>
-    </div>
-    
-    <div style="text-align: center; color: #cc0000; font-size: 11px; font-weight: bold; margin-top: 20px;">
-        Original - Habilitada para Amparar el Traslado de Bienes
-    </div>
 </div>
 
 <script>
