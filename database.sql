@@ -168,11 +168,13 @@ CREATE TABLE usuarios (
 INSERT INTO configuracion (clave, valor, descripcion) VALUES ('tasa_usd_bs', '36.5', 'Tasa de cambio actual (USD a VES)');
 
 INSERT INTO metodos_pago (nombre, moneda_base) VALUES 
-('Efectivo USD', 'USD'),
-('Efectivo VES', 'VES'),
-('Punto de Venta VES', 'VES'),
-('Pago Movil VES', 'VES'),
-('Zelle USD', 'USD');
+('Dolar', 'USD'),
+('Efectivo', 'VES'),
+('Punto de Venta', 'VES'),
+('Pago Movil', 'VES'),
+('Biopago', 'VES'),
+('Transferencia', 'VES'),
+('Binance', 'USD');
 
 INSERT INTO usuarios (username, password, nombre, rol) VALUES 
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Global', 'ADMIN'),
