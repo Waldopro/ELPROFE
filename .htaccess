@@ -1,22 +1,40 @@
+<IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteBase /ELPROFE/
 
-# Redirigir index.php a la raíz de ELPROFE
-RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /ELPROFE/index\.php\ HTTP/
-RewriteRule ^index\.php$ /ELPROFE/ [R=301,L]
+# Definir páginas de error personalizadas
+ErrorDocument 403 /ELPROFE/error.php?code=403
+ErrorDocument 404 /ELPROFE/error.php?code=404
+ErrorDocument 500 /ELPROFE/error.php?code=500
 
-# Evitar listar directorios
+# Evitar listar directorios por seguridad
 Options -Indexes
 
-# Si la solicitud es para un archivo o directorio existente, dejarlo pasar
+# Si la solicitud es un archivo real (.css, .js) o carpeta real, no hacer nada y dejarlo pasar
 RewriteCond %{REQUEST_FILENAME} -d [OR]
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
-# Enrutar dashboard
-RewriteRule ^dashboard$ dashboard.php [QSA,L]
-RewriteRule ^logout$ logout.php [QSA,L]
+# ==========================================
+# RUTAS AMIGABLES EXPLÍCITAS (EXPLICIT ROUTES)
+# ==========================================
+# Core
+RewriteRule ^login/?$ index.php [QSA,L]
+RewriteRule ^dashboard/?$ dashboard.php [QSA,L]
+RewriteRule ^logout/?$ logout.php [QSA,L]
 
-# Enrutar todas las páginas de la carpeta pages (ventas, inventario, compras, clientes, etc)
-# Ej: /ventas -> /pages/ventas.php
-RewriteRule ^([a-zA-Z0-9_-]+)$ pages/$1.php [QSA,L]
+# Modulos de Negocio
+RewriteRule ^ventas/?$ pages/ventas.php [QSA,L]
+RewriteRule ^proformas/?$ pages/proformas.php [QSA,L]
+RewriteRule ^inventario/?$ pages/inventario.php [QSA,L]
+RewriteRule ^compras/?$ pages/compras.php [QSA,L]
+RewriteRule ^proveedores/?$ pages/proveedores.php [QSA,L]
+RewriteRule ^caja/?$ pages/caja.php [QSA,L]
+RewriteRule ^clientes/?$ pages/clientes.php [QSA,L]
+
+# Capturar cualquier otra ruta basura, ignorando archivos reales
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ error.php?code=404 [QSA,L]
+
+</IfModule>
