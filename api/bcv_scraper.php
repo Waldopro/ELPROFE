@@ -1,0 +1,77 @@
+<?php
+// bcv_scraper.php - Ejecutado en el login
+require_once __DIR__ . '/../includes/db.php';
+
+function extraerTasaBCVHtml($html, $moneda_id) {
+    // Busca exactamente el id "dolar" o "euro" y recorta el string dentro la etiqueta <strong>
+    $regex = '/<div\s+id="' . preg_quote($moneda_id, '/') . '"[^>]*>.*?<strong>\s*([0-9\.,]+)\s*<\/strong>/si';
+    
+    if (preg_match($regex, $html, $match)) {
+        // Limpiamos la coma por un punto para guardarlo en la Base de Datos
+        $valor = str_replace(',', '.', str_replace('.', '', trim($match[1])));
+        return (float) $valor;
+    }
+    return null;
+}
+
+function actualizarTasaManual($pdo) {
+    $hoy = date('Y-m-d');
+    $dia_semana = (int) date('w');
+    
+    // Si es Sábado (6) o Domingo (0) no forzamos nada porque la página del BCV no actualiza
+    // En su lugar, deberíamos usar la última tasa disponible.
+    if ($dia_semana === 0 || $dia_semana === 6) {
+        // Podemos registrar que se intentó pero es fin de semana, o simplemente retornar
+        return false;
+    }
+
+    // Verificar si ya existe la tasa de hoy
+    $stmt = $pdo->prepare("SELECT id FROM tasas_bcv WHERE fecha = ?");
+    $stmt->execute([$hoy]);
+    if ($stmt->fetch()) {
+        // Ya tenemos la tasa de hoy guardada, no hacemos nada
+        return true;
+    }
+
+    $url = 'https://www.bcv.org.ve/';
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    // CRÍTICO para el BCV: Si su certificado vence, esto evita que el código se caiga
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); 
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Cancelar a los 10 segundos si su página está caída
+    
+    $html = curl_exec($ch);
+    curl_close($ch);
+
+    if($html) {
+        $usd = extraerTasaBCVHtml($html, 'dolar');
+        $eur = extraerTasaBCVHtml($html, 'euro');
+
+        if ($usd > 0) {
+            // Insertar en la tabla tasas_bcv
+            $stmtInsert = $pdo->prepare("INSERT IGNORE INTO tasas_bcv (fecha, usd, eur) VALUES (?, ?, ?)");
+            $stmtInsert->execute([$hoy, $usd, $eur]);
+
+            // Actualizar la configuración global del sistema
+            $stmtConfig = $pdo->prepare("UPDATE configuracion SET valor = ? WHERE clave = 'tasa_usd_bs'");
+            $stmtConfig->execute([$usd]);
+
+            $stmtConfig2 = $pdo->prepare("INSERT IGNORE INTO configuracion (clave, valor, descripcion) VALUES ('tasa_tipo', 'BCV', 'Tipo')");
+            $stmtConfig2->execute();
+
+            $stmtConfig3 = $pdo->prepare("UPDATE configuracion SET valor = 'BCV' WHERE clave = 'tasa_tipo'");
+            $stmtConfig3->execute();
+
+            return $usd;
+        }
+    }
+    return false;
+}
+
+// Ejecutar silenciosamente
+actualizarTasaManual($pdo);
+?>

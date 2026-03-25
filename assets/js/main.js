@@ -43,8 +43,10 @@ $(document).ready(function() {
     $(document).on('keydown', function(e) {
         // Alt + T: Toggle Theme
         if (e.altKey && e.key.toLowerCase() === 't') {
-            e.preventDefault();
-            themeBtn.click();
+            if (window.isLoggedIn) {
+                e.preventDefault();
+                themeBtn.click();
+            }
         }
         
         // Barcode Scanner Listener:
@@ -74,23 +76,23 @@ $(document).ready(function() {
             }
         }
         
-        if (!isInputFocus) {
+        if (!isInputFocus && window.isLoggedIn) {
             switch(e.key) {
                 case 'F1':
                     e.preventDefault();
-                    window.location.href = '/dashboard';
+                    window.location.href = '/ELPROFE/dashboard';
                     break;
                 case 'F2':
                     e.preventDefault();
-                    window.location.href = '/ventas';
+                    window.location.href = '/ELPROFE/ventas';
                     break;
                 case 'F3':
                     e.preventDefault();
-                    window.location.href = '/inventario';
+                    window.location.href = '/ELPROFE/inventario';
                     break;
                 case 'F4':
                     e.preventDefault();
-                    window.location.href = '/compras';
+                    window.location.href = '/ELPROFE/compras';
                     break;
             }
         }

@@ -30,6 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             registrarAcceso($pdo, $row['id'], $user, $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown', true);
             registrarAccion($pdo, 'SISTEMA', 'LOGIN_EXITO', "Usuario ingresó al sistema.");
             
+            // Actualizar Tasa BCV automáticamente en background en el primer login
+            try {
+                require_once 'api/bcv_scraper.php';
+            } catch (Exception $e) {
+                // Silencioso, no abortar login si el scraping falla
+            }
+            
             header("Location: /ELPROFE/dashboard");
             exit;
         } else {

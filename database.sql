@@ -155,6 +155,13 @@ CREATE TABLE configuracion (
     descripcion TEXT
 );
 
+CREATE TABLE tasas_bcv (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fecha DATE NOT NULL UNIQUE,
+    usd DECIMAL(10, 4),
+    eur DECIMAL(10, 4)
+);
+
 CREATE TABLE usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,

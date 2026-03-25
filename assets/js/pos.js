@@ -11,10 +11,12 @@ const POS = (() => {
         totalBS: $('#gran-total-bs'),
         filaVacia: $('#fila-vacia'),
         clienteCedula: $('#cliente-cedula'),
-        clienteNombre: $('#cliente-nombre')
+        clienteNombre: $('#cliente-nombre'),
+        holdCount: $('#hold-count')
     };
 
     const tasa = parseFloat($('#tasa-actual').text().replace(/,/g, ''));
+    let hold_bills = JSON.parse(localStorage.getItem('hold_bills')) || [];
 
     function renderCart() {
         elements.tabla.empty();
@@ -49,6 +51,15 @@ const POS = (() => {
         
         elements.totalUSD.text('$' + granTotal.toFixed(2));
         elements.totalBS.text((granTotal * tasa).toFixed(2));
+    }
+
+    function updateHoldCount() {
+        elements.holdCount.text(hold_bills.length);
+        if (hold_bills.length > 0) {
+            elements.holdCount.removeClass('bg-secondary bg-danger').addClass('bg-warning text-dark');
+        } else {
+            elements.holdCount.removeClass('bg-warning text-dark').addClass('bg-secondary text-white');
+        }
     }
 
     function addToCart(producto) {
@@ -194,7 +205,6 @@ const POS = (() => {
             $('#modalPago').modal('hide');
             procesarVenta('CONTADO', pagosMultiples);
         });
-
         // Boton Fiado Directo
         $('#btn-fiado').click(function() { procesarVenta('FIADO'); });
         $('#btn-anular').click(function() { cart = []; renderCart(); elements.buscador.focus(); });
@@ -217,6 +227,106 @@ const POS = (() => {
                 currentClienteId = 0;
                 elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
             }
+        });
+
+        // --- EVENTOS FACTURAS EN ESPERA (HOLD BILLS) ---
+        $('#btn-hold').click(function() {
+            if (cart.length === 0) {
+                Swal.fire('Atención', 'El carrito está vacío, no hay nada que poner en espera.', 'warning');
+                return;
+            }
+            
+            const ticketName = 'Cliente: ' + elements.clienteNombre.val() + ' | ' + new Date().toLocaleTimeString();
+            
+            hold_bills.push({
+                id: Date.now(),
+                label: ticketName,
+                cart: JSON.parse(JSON.stringify(cart)),
+                clienteId: currentClienteId,
+                clienteCedula: elements.clienteCedula.val(),
+                clienteNombre: elements.clienteNombre.val()
+            });
+            
+            localStorage.setItem('hold_bills', JSON.stringify(hold_bills));
+            updateHoldCount();
+            
+            // Limpiar
+            cart = [];
+            currentClienteId = 0;
+            elements.clienteCedula.val('V-00000000');
+            elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
+            renderCart();
+            elements.buscador.focus();
+            
+            Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Ticket guardado en espera', showConfirmButton: false, timer: 2000});
+        });
+
+        $('#btn-restore-hold').click(function() {
+            if (hold_bills.length === 0) {
+                Swal.fire({toast: true, position: 'top-end', icon: 'info', title: 'No hay tickets en espera', showConfirmButton: false, timer: 1500});
+                return;
+            }
+            
+            // Construir HTML para seleccionar
+            let htmlOptions = '';
+            hold_bills.forEach((bill, i) => {
+                let totalItems = bill.cart.reduce((s, p) => s + p.cantidad, 0);
+                let totalUSD = bill.cart.reduce((s, p) => s + (p.precio * p.cantidad), 0);
+                htmlOptions += `<button type="button" class="list-group-item list-group-item-action fw-bold fs-6 py-3 select-hold-bill" data-idx="${i}">
+                    <div class="d-flex w-100 justify-content-between">
+                      <span><i class="fa-solid fa-clock text-warning"></i> ${bill.label}</span>
+                      <span class="text-primary">$${totalUSD.toFixed(2)}</span>
+                    </div>
+                    <small class="text-muted">${totalItems} artículos en carrito</small>
+                </button>`;
+            });
+            
+            Swal.fire({
+                title: 'Recuperar Ticket en Espera',
+                html: `<div class="list-group list-group-flush text-start shadow-sm border mt-3">${htmlOptions}</div>`,
+                showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Cerrar',
+                didOpen: () => {
+                    $('.select-hold-bill').click(function() {
+                        let idx = $(this).data('idx');
+                        let billToRestore = hold_bills[idx];
+                        
+                        let doRestore = () => {
+                            cart = billToRestore.cart;
+                            currentClienteId = billToRestore.clienteId;
+                            elements.clienteCedula.val(billToRestore.clienteCedula);
+                            elements.clienteNombre.val(billToRestore.clienteNombre);
+                            if (currentClienteId > 0) elements.clienteNombre.prop('disabled', true);
+                            
+                            // Remover del array
+                            hold_bills.splice(idx, 1);
+                            localStorage.setItem('hold_bills', JSON.stringify(hold_bills));
+                            updateHoldCount();
+                            renderCart();
+                            Swal.close();
+                            elements.buscador.focus();
+                        };
+                        
+                        if (cart.length > 0) {
+                            Swal.fire({
+                                title: 'Carrito Actual No Vacío',
+                                text: 'El carrito actual se enviará a tickets en espera automáticamente.',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, continuar'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    $('#btn-hold').click(); // Auto-hold
+                                    setTimeout(doRestore, 300); // Wait for the auto-hold toast
+                                }
+                            });
+                        } else {
+                            doRestore();
+                        }
+                    });
+                }
+            });
         });
     }
 
@@ -253,7 +363,7 @@ const POS = (() => {
         });
     }
 
-    return { init: () => { renderCart(); initEvents(); elements.buscador.focus(); } };
+    return { init: () => { renderCart(); updateHoldCount(); initEvents(); elements.buscador.focus(); } };
 })();
 
 $(document).ready(function() { POS.init(); });

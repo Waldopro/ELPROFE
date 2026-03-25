@@ -81,15 +81,30 @@ require_once '../includes/header.php';
                 <hr class="text-muted">
                 
                 <h5 class="fw-bold mb-3">Acciones</h5>
-                <div class="d-grid gap-3">
+                <div class="d-grid gap-2">
                     <button class="btn btn-success btn-lg py-3 shadow-sm fw-bold w-100 mt-2 fs-4" id="btn-cobrar-pre" data-bs-toggle="modal" data-bs-target="#modalPago">
                         <i class="fa-solid fa-money-bill-wave me-2"></i> Procesar Pago (F9)
                     </button>
-                    <button class="btn btn-outline-warning py-2 w-100 mt-2" id="btn-fiado">
-                        <i class="fa-solid fa-handshake-angle me-2"></i> Emitir a Crédito (Fiado)
+                    
+                    <div class="row g-2 mt-1">
+                        <div class="col-6">
+                            <button class="btn btn-outline-warning w-100 py-2 h-100" id="btn-fiado">
+                                <i class="fa-solid fa-handshake-angle d-block mb-1"></i> Crédito
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-outline-info w-100 py-2 h-100" id="btn-hold">
+                                <i class="fa-solid fa-pause d-block mb-1"></i> En Espera
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary py-2 w-100 mt-1" id="btn-restore-hold">
+                        <i class="fa-solid fa-clock-rotate-left me-2"></i> Recuperar Ticket <span id="hold-count" class="badge bg-danger ms-2">0</span>
                     </button>
-                    <button class="btn btn-danger py-2 w-100 mt-2" id="btn-anular">
-                        <i class="fa-solid fa-ban me-2"></i> Anular
+                    
+                    <button class="btn btn-danger py-2 w-100 mt-1" id="btn-anular">
+                        <i class="fa-solid fa-ban me-2"></i> Limpiar Carrito
                     </button>
                 </div>
             </div>

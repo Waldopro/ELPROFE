@@ -15,6 +15,9 @@ if (!defined('NO_LOGIN_REQUIRED')) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?php echo generateCsrfToken(); ?>">
     <title>ELPROFE - Sistema POS</title>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/ELPROFE/manifest.json">
+    <meta name="theme-color" content="#0d6efd">
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -33,15 +36,17 @@ if (!defined('NO_LOGIN_REQUIRED')) {
 <!-- Navbar para vista logueada -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="/ELPROFE/dashboard.php"><i class="fa-solid fa-graduation-cap"></i> ELPROFE</a>
+    <a class="navbar-brand fw-bold" href="/ELPROFE/dashboard"><i class="fa-solid fa-graduation-cap"></i> ELPROFE</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav me-auto">
+        <?php if (basename($_SERVER['PHP_SELF']) !== 'dashboard.php'): ?>
         <li class="nav-item">
           <a class="nav-link" href="/ELPROFE/dashboard"><i class="fa-solid fa-house"></i> Inicio (F1)</a>
         </li>
+        <?php endif; ?>
         <li class="nav-item">
           <a class="nav-link" href="/ELPROFE/ventas"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
         </li>
