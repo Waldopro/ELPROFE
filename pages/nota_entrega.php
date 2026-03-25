@@ -4,7 +4,9 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
 $id = intval($_GET['id'] ?? 0);
-if ($id <= 0) die("Proforma inválida");
+$is_demo = isset($_GET['demo']);
+
+if (!$is_demo && $id <= 0) die("Proforma inválida");
 
 // Datos de la empresa
 $empresa_nombre = getConfig('empresa_nombre', $pdo) ?: 'ELPROFE POS';
@@ -13,29 +15,50 @@ $empresa_dir = getConfig('empresa_direccion', $pdo) ?: '';
 $empresa_tel = getConfig('empresa_telefono', $pdo) ?: '';
 $empresa_iva_pct = floatval(getConfig('empresa_iva', $pdo) ?: 16.00);
 
-// Cargar Proforma
-$stmt = $pdo->prepare("
-    SELECT p.*, c.nombre as cliente_nombre, c.cedula_rif, c.direccion as cliente_dir, c.telefono as cliente_tel, u.nombre as vendedor 
-    FROM proformas p
-    JOIN clientes c ON p.cliente_id = c.id
-    JOIN usuarios u ON p.cajero_id = u.id
-    WHERE p.id = ?
-");
-$stmt->execute([$id]);
-$proforma = $stmt->fetch();
+if ($is_demo) {
+    $id = 999999;
+    $proforma = [
+        'id' => $id,
+        'cliente_nombre' => 'María Silva (DEMO)',
+        'cedula_rif' => 'V-98765432',
+        'cliente_dir' => 'Av. Principal, Edificio Prueba',
+        'cliente_tel' => '0414-0000000',
+        'vendedor' => 'Administrador Global',
+        'tipo_documento' => 'NOTA DE VENTA',
+        'estado' => 'PAGADO',
+        'fecha_emision' => date('Y-m-d H:i:s'),
+        'total_usd' => 45.00,
+        'tasa_dia_usd_bs' => 36.50
+    ];
+    $detalles = [
+        ['codigo_barras' => '750123456', 'cantidad' => 2, 'producto_nombre' => 'Producto Prueba 1', 'nombre_presentacion' => 'Unidad', 'precio_unitario_usd' => 15.00, 'subtotal_usd' => 30.00],
+        ['codigo_barras' => '750987654', 'cantidad' => 3, 'producto_nombre' => 'Accesorios Demo 2', 'nombre_presentacion' => 'Pack', 'precio_unitario_usd' => 5.00, 'subtotal_usd' => 15.00]
+    ];
+} else {
+    // Cargar Proforma
+    $stmt = $pdo->prepare("
+        SELECT p.*, c.nombre as cliente_nombre, c.cedula_rif, c.direccion as cliente_dir, c.telefono as cliente_tel, u.nombre as vendedor 
+        FROM proformas p
+        JOIN clientes c ON p.cliente_id = c.id
+        JOIN usuarios u ON p.cajero_id = u.id
+        WHERE p.id = ?
+    ");
+    $stmt->execute([$id]);
+    $proforma = $stmt->fetch();
 
-if (!$proforma) die("Documento no encontrado");
+    if (!$proforma) die("Documento no encontrado");
 
-// Cargar Detalles
-$stmtD = $pdo->prepare("
-    SELECT pd.*, pres.nombre_presentacion, pres.codigo_barras, prod.nombre as producto_nombre
-    FROM proforma_detalles pd
-    JOIN presentaciones pres ON pd.presentacion_id = pres.id
-    JOIN productos prod ON pres.producto_id = prod.id
-    WHERE pd.proforma_id = ?
-");
-$stmtD->execute([$id]);
-$detalles = $stmtD->fetchAll();
+    // Cargar Detalles
+    $stmtD = $pdo->prepare("
+        SELECT pd.*, pres.nombre_presentacion, pres.codigo_barras, prod.nombre as producto_nombre
+        FROM proforma_detalles pd
+        JOIN presentaciones pres ON pd.presentacion_id = pres.id
+        JOIN productos prod ON pres.producto_id = prod.id
+        WHERE pd.proforma_id = ?
+    ");
+    $stmtD->execute([$id]);
+    $detalles = $stmtD->fetchAll();
+}
 
 $tasa_dia = $proforma['tasa_dia_usd_bs'];
 $total_con_iva = $proforma['total_usd'] * $tasa_dia;

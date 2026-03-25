@@ -216,14 +216,20 @@ require_once '../includes/header.php';
                             </tr>
                         </thead>
                         <tbody>
+                            <tr>
+                                <td><strong>#DEMO</strong></td>
+                                <td>Plantilla Genérica</td>
+                                <td>---</td>
+                                <td>
+                                    <a href="/ELPROFE/pages/ticket.php?demo=1" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-receipt"></i> Ticket Térmico</a>
+                                    <a href="/ELPROFE/pages/nota_entrega.php?demo=1" target="_blank" class="btn btn-sm btn-outline-warning"><i class="fa-solid fa-file-pdf"></i> PDF / A4</a>
+                                </td>
+                            </tr>
                             <?php 
                             $stmtProfs = $pdo->query("SELECT id, fecha_emision, total_usd FROM proformas ORDER BY id DESC LIMIT 5");
                             $profs = $stmtProfs->fetchAll();
                             
-                            if(empty($profs)) {
-                                echo "<tr><td colspan='4' class='text-center text-muted'>No hay proformas/ventas en el sistema para probar. Realiza una venta en el POS primero.</td></tr>";
-                            } else {
-                                foreach($profs as $pr):
+                            foreach($profs as $pr):
                             ?>
                             <tr>
                                 <td><strong>#<?php echo $pr['id']; ?></strong></td>
@@ -236,7 +242,6 @@ require_once '../includes/header.php';
                             </tr>
                             <?php 
                                 endforeach; 
-                            }
                             ?>
                         </tbody>
                     </table>

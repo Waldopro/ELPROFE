@@ -12,7 +12,9 @@ require_once '../includes/functions.php';
 // Lo mejor es hacer el archivo público si se pasa el ID correcto.
 
 $id = intval($_GET['id'] ?? 0);
-if ($id <= 0) die("Proforma inválida");
+$is_demo = isset($_GET['demo']);
+
+if (!$is_demo && $id <= 0) die("Proforma inválida");
 
 // Datos de la empresa
 $empresa_nombre = getConfig('empresa_nombre', $pdo) ?: 'ELPROFE POS';
@@ -20,40 +22,62 @@ $empresa_rif = getConfig('empresa_rif', $pdo) ?: 'J-00000000-0';
 $empresa_dir = getConfig('empresa_direccion', $pdo) ?: '';
 $empresa_iva_pct = floatval(getConfig('empresa_iva', $pdo) ?: 16.00);
 
-// Cargar Proforma
-$stmt = $pdo->prepare("
-    SELECT p.*, c.nombre as cliente_nombre, c.cedula_rif, u.nombre as vendedor 
-    FROM proformas p
-    JOIN clientes c ON p.cliente_id = c.id
-    JOIN usuarios u ON p.cajero_id = u.id
-    WHERE p.id = ?
-");
-$stmt->execute([$id]);
-$proforma = $stmt->fetch();
+if ($is_demo) {
+    // Generar datos flotantes de demostración genérica
+    $id = 999999;
+    $proforma = [
+        'id' => $id,
+        'cliente_nombre' => 'Juan Pérez (DEMO)',
+        'cedula_rif' => 'V-12345678',
+        'vendedor' => 'Administrador Global',
+        'tipo_documento' => 'FACTURA',
+        'fecha_emision' => date('Y-m-d H:i:s'),
+        'total_usd' => 25.50,
+        'tasa_dia_usd_bs' => 36.50
+    ];
+    $detalles = [
+        ['cantidad' => 2, 'producto_nombre' => 'Producto de Prueba A', 'nombre_presentacion' => 'Caja', 'precio_unitario_usd' => 10.00, 'subtotal_usd' => 20.00],
+        ['cantidad' => 1, 'producto_nombre' => 'Producto de Prueba B', 'nombre_presentacion' => 'Unidad', 'precio_unitario_usd' => 5.50, 'subtotal_usd' => 5.50]
+    ];
+    $pagos = [
+        ['metodo' => 'PAGO MÓVIL', 'monto_entregado_bs' => 930.75, 'monto_equivalente_usd' => 25.50]
+    ];
+} else {
+    // Cargar Proforma Real
+    $stmt = $pdo->prepare("
+        SELECT p.*, c.nombre as cliente_nombre, c.cedula_rif, u.nombre as vendedor 
+        FROM proformas p
+        JOIN clientes c ON p.cliente_id = c.id
+        JOIN usuarios u ON p.cajero_id = u.id
+        WHERE p.id = ?
+    ");
+    $stmt->execute([$id]);
+    $proforma = $stmt->fetch();
 
-if (!$proforma) die("Documento no encontrado");
+    if (!$proforma) die("Documento no encontrado");
 
-// Cargar Detalles
-$stmtD = $pdo->prepare("
-    SELECT pd.*, pres.nombre_presentacion, prod.nombre as producto_nombre
-    FROM proforma_detalles pd
-    JOIN presentaciones pres ON pd.presentacion_id = pres.id
-    JOIN productos prod ON pres.producto_id = prod.id
-    WHERE pd.proforma_id = ?
-");
-$stmtD->execute([$id]);
-$detalles = $stmtD->fetchAll();
+    // Cargar Detalles Reales
+    $stmtD = $pdo->prepare("
+        SELECT pd.*, pres.nombre_presentacion, prod.nombre as producto_nombre
+        FROM proforma_detalles pd
+        JOIN presentaciones pres ON pd.presentacion_id = pres.id
+        JOIN productos prod ON pres.producto_id = prod.id
+        WHERE pd.proforma_id = ?
+    ");
+    $stmtD->execute([$id]);
+    $detalles = $stmtD->fetchAll();
 
-// Cargar Pagos
-$stmtP = $pdo->prepare("
-    SELECT a.id, mp.nombre as metodo, pd.monto_entregado_bs, pd.monto_entregado_usd, pd.monto_equivalente_usd
-    FROM abonos a
-    JOIN pagos_detalles pd ON a.id = pd.abono_id
-    JOIN metodos_pago mp ON pd.metodo_pago_id = mp.id
-    WHERE a.proforma_id = ?
-");
-$stmtP->execute([$id]);
-$pagos = $stmtP->fetchAll();
+    // Cargar Pagos Reales
+    $stmtP = $pdo->prepare("
+        SELECT a.id, mp.nombre as metodo, pd.monto_entregado_bs, pd.monto_entregado_usd, pd.monto_equivalente_usd
+        FROM abonos a
+        JOIN pagos_detalles pd ON a.id = pd.abono_id
+        JOIN metodos_pago mp ON pd.metodo_pago_id = mp.id
+        WHERE a.proforma_id = ?
+    ");
+    $stmtP->execute([$id]);
+    $pagos = $stmtP->fetchAll();
+}
 
 $tasa_dia = $proforma['tasa_dia_usd_bs'];
 
