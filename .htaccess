@@ -1,0 +1,22 @@
+RewriteEngine On
+RewriteBase /
+
+# Redirigir index.php a la raíz
+RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /index\.php\ HTTP/
+RewriteRule ^index\.php$ / [R=301,L]
+
+# Evitar listar directorios
+Options -Indexes
+
+# Si la solicitud es para un archivo o directorio existente, dejarlo pasar
+RewriteCond %{REQUEST_FILENAME} -d [OR]
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Enrutar dashboard
+RewriteRule ^dashboard$ dashboard.php [QSA,L]
+RewriteRule ^logout$ logout.php [QSA,L]
+
+# Enrutar todas las páginas de la carpeta pages (ventas, inventario, compras, clientes, etc)
+# Ej: /ventas -> /pages/ventas.php
+RewriteRule ^([a-zA-Z0-9_-]+)$ pages/$1.php [QSA,L]

@@ -1,0 +1,81 @@
+/* assets/css/style.css */
+:root {
+    --primary-color: #4f46e5; /* Indigo 600 */
+    --hover-color: #4338ca;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Navbar Personalizada */
+.navbar.bg-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%) !important;
+}
+
+/* Cards Premium */
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Datatables or Tables */
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.table thead th {
+    border-bottom: 2px solid var(--primary-color);
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-heading-color);
+}
+.table tbody tr {
+    transition: background-color 0.1s ease;
+}
+.table tbody tr:hover {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Botones y Formularios Redondeados */
+.btn, .form-control, .form-select {
+    border-radius: 8px;
+}
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.btn-primary:hover {
+    background-color: var(--hover-color);
+    border-color: var(--hover-color);
+}
+
+/* Fix para modo oscuro */
+[data-bs-theme="dark"] .card {
+    background-color: #1e1e2d;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+[data-bs-theme="dark"] body {
+    background-color: #151521;
+}
+[data-bs-theme="dark"] .table {
+    color: #e4e6eb;
+}
+
+/* Utilidades para Punto de Venta */
+.pos-total {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+[data-bs-theme="dark"] .pos-total {
+    color: #818cf8; /* Indigo 400 for dark mode */
+}
