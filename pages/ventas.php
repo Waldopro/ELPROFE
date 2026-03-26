@@ -133,7 +133,15 @@ require_once '../includes/header.php';
           </div>
           <div class="alert alert-info py-2 small"><i class="fa-solid fa-circle-info"></i> Tasa de Cálculo Actual: <strong id="modal-tasa-actual"><?php echo floatval(getConfig('tasa_usd_bs', $pdo)); ?></strong> Bs/$</div>
           
-          <table class="table table-bordered align-middle">
+          <div class="mb-3 px-1">
+              <label class="form-label fw-bold text-muted mb-1"><i class="fa-solid fa-file-invoice"></i> Tipo de Documento SENIAT</label>
+              <select id="modal-tipo-doc" class="form-select form-select-lg border-secondary shadow-sm">
+                  <option value="FACTURA">🧾 Factura Fiscal (Exige Correlativo)</option>
+                  <option value="PROFORMA" selected>📄 Nota de Entrega / Control Interno</option>
+              </select>
+          </div>
+          
+          <table class="table table-bordered align-middle mt-3">
               <thead class="bg-light">
                   <tr>
                       <th width="40%">Método de Pago</th>

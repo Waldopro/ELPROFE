@@ -80,12 +80,13 @@ if ($action === 'procesar_proforma') {
             }
         }
         
-        // 3. Crear Proforma
+        // 3. Crear Documento (Proforma o Factura Fiscal)
         $saldoPendiente = ($tipo === 'FIADO') ? $totalUSD : 0.00;
         $estado = ($tipo === 'FIADO') ? 'PENDIENTE' : 'PAGADO';
+        $tipoDoc = ($_POST['tipo_doc'] ?? 'PROFORMA') === 'FACTURA' ? 'FACTURA' : 'PROFORMA';
         
-        $stmt = $pdo->prepare("INSERT INTO proformas (cliente_id, cajero_id, tasa_dia_usd_bs, total_usd, saldo_pendiente_usd, estado) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$clienteId, $_SESSION['user_id'], $tasa, $totalUSD, $saldoPendiente, $estado]);
+        $stmt = $pdo->prepare("INSERT INTO proformas (cliente_id, cajero_id, tipo_documento, tasa_dia_usd_bs, total_usd, saldo_pendiente_usd, estado) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$clienteId, $_SESSION['user_id'], $tipoDoc, $tasa, $totalUSD, $saldoPendiente, $estado]);
         $proforma_id = $pdo->lastInsertId();
         
         // 4. Insertar Detalles (los triggers creados se encargarán de restar el inventario base multiplicando el factor!)

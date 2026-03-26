@@ -202,11 +202,15 @@ const POS = (() => {
                     pagosMultiples.push({id: id, monto_usd: u, monto_bs: b});
                 }
             });
+            let docType = $('#modal-tipo-doc').val();
             $('#modalPago').modal('hide');
-            procesarVenta('CONTADO', pagosMultiples);
+            procesarVenta('CONTADO', pagosMultiples, docType);
         });
         // Boton Fiado Directo
-        $('#btn-fiado').click(function() { procesarVenta('FIADO'); });
+        $('#btn-fiado').click(function() { 
+            let docType = $('#modal-tipo-doc').val() || 'PROFORMA';
+            procesarVenta('FIADO', [], docType); 
+        });
         $('#btn-anular').click(function() { cart = []; renderCart(); elements.buscador.focus(); });
         
         // Buscar Cliente al salir del input cedula
@@ -330,7 +334,7 @@ const POS = (() => {
         });
     }
 
-    function procesarVenta(tipo, arrayPagos = []) {
+    function procesarVenta(tipo, arrayPagos = [], tipoDoc = 'PROFORMA') {
         if(cart.length === 0) {
             Swal.fire('Atención', 'El carrito está vacío', 'warning'); return;
         }
@@ -338,6 +342,7 @@ const POS = (() => {
         $.post('/ELPROFE/api/ventas.php', {
             action: 'procesar_proforma',
             tipo: tipo,
+            tipo_doc: tipoDoc,
             cliente_id: currentClienteId,
             productos: JSON.stringify(cart),
             pagos: JSON.stringify(arrayPagos)
