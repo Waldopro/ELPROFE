@@ -13,8 +13,18 @@ require_once '../includes/functions.php';
 
 $id = intval($_GET['id'] ?? 0);
 $is_demo = isset($_GET['demo']);
+ $shareToken = isset($_GET['share']) ? (string)$_GET['share'] : '';
 
 if (!$is_demo && $id <= 0) die("Proforma inválida");
+
+// Acceso seguro:
+// - Si se abre desde el POS (con token firmado), no requiere login.
+// - Si no hay token válido, se exige sesión.
+if (!$is_demo) {
+    if (!validateShareLinkToken($id, $shareToken)) {
+        checkLogin();
+    }
+}
 
 // Datos de la empresa
 $empresa_nombre = getConfig('empresa_nombre', $pdo) ?: 'ELPROFE POS';
@@ -99,205 +109,182 @@ if ($es_whatsapp) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket #<?php echo str_pad($id, 6, "0", STR_PAD_LEFT); ?></title>
+    <meta name="csrf-token" content="<?php echo e(generateCsrfToken()); ?>">
     <style>
-        @page { margin: 0; }
-        body { font-family: 'Courier New', Courier, monospace; font-size: 11px; margin: 0; padding: 10px; width: 300px; color: #000; }
+        :root { --brand-blue: #002157; --brand-red: #d3101e; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: 58mm auto; margin: 0; }
+        html, body { width: 58mm; overflow-x: hidden; }
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 11px; 
+            background: #fff; 
+            color: #000; 
+            padding: 4mm 2mm; 
+        }
+        
+        .ticket-wrapper { width: 54mm; margin: 0 auto; background: #fff; }
         .center { text-align: center; }
         .right { text-align: right; }
-        .left { text-align: left; }
         .bold { font-weight: bold; }
-        .sep { border-bottom: 1px dashed #000; margin: 5px 0; }
-        .table { width: 100%; border-collapse: collapse; }
-        .table th, .table td { padding: 2px 0; vertical-align: top; }
-        h3, h4, p { margin: 2px 0; }
-        .bg-gray { background-color: #eee; -webkit-print-color-adjust: exact; }
-        @media print {
-            body { width: 100%; margin: 0; padding: 5px; }
-            .no-print { display: none !important; }
+        .sep { border-bottom: 1px dashed #000; margin: 6px 0; }
+        
+        .header img { width: 50px; height: auto; margin-bottom: 5px; }
+        .header h3 { font-size: 14px; margin-bottom: 2px; }
+        .header div { font-size: 10px; line-height: 1.2; }
+
+        .info-section { margin: 10px 0; font-size: 10px; }
+        .info-section div { margin-bottom: 2px; }
+
+        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .items-table th { border-bottom: 1px solid #000; padding: 4px 0; text-align: left; font-size: 10px; }
+        .items-table td { padding: 4px 0; vertical-align: top; font-size: 10px; }
+        
+        .total-area { margin-top: 10px; }
+        .total-row { display: flex; justify-content: space-between; padding: 2px 0; }
+        .total-row.grand { font-size: 13px; font-weight: bold; border-top: 1px double #000; padding-top: 5px; margin-top: 5px; }
+
+        .btn-panel { 
+            position: fixed; top: 10px; right: 10px; z-index: 9999; 
+            display: flex; flex-direction: column; gap: 8px; 
         }
-        .btn { display: inline-block; padding: 10px 15px; background: #0d6efd; color: white; text-decoration: none; border-radius: 5px; margin-bottom: 10px; font-family: sans-serif; }
-        .btn-success { background: #198754; }
+        .btn-ui { 
+            padding: 10px 15px; border-radius: 6px; font-weight: 700; cursor: pointer; border: none; 
+            font-size: 12px; font-family: sans-serif; text-decoration: none; text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .btn-blue { background: #007bff; color: white; }
+        .btn-green { background: #28a745; color: white; }
         .btn-warning { background: #ffc107; color: #000; }
+
+        @media print {
+            .btn-panel { display: none !important; }
+            body { padding: 0; margin: 0; }
+        }
     </style>
 </head>
 <body>
 
-<div class="no-print center" style="margin-bottom: 20px;">
-    <button class="btn" onclick="window.print()"><i class="fa-solid fa-print"></i> 🖨️ Imprimir Ticket</button>
-    <button class="btn btn-success" id="btn-wa" onclick="shareAsImage(<?php echo $id; ?>, 'btn-wa', 'ticket')">🖼️ Capturar WA(Imagen)</button>
-    <a href="nota_entrega.php?id=<?php echo $id; ?>" class="btn btn-warning">📄 Ver Nota Entrega</a>
+<div class="btn-panel no-print">
+    <button onclick="window.print()" class="btn-ui btn-blue">🖨️ Imprimir</button>
+    <button id="btn-wa" onclick="shareAsImage(<?php echo $id; ?>, 'btn-wa', 'ticket')" class="btn-ui btn-green">📱 WhatsApp</button>
+    <a href="nota_entrega.php?id=<?php echo $id; ?><?php echo $shareToken ? '&share=' . rawurlencode($shareToken) : ''; ?>" class="btn-ui btn-warning">📄 Nota A4</a>
 </div>
 
-<div class="center bold">
-    <h3>SENIAT</h3>
-    <div>RIF <?php echo htmlspecialchars($empresa_rif); ?></div>
-    <div><?php echo htmlspecialchars(strtoupper($empresa_nombre)); ?></div>
-</div>
-<div class="center" style="margin-bottom: 5px;">
-    <?php echo nl2br(htmlspecialchars($empresa_dir)); ?>
-    <div>CAJA 01</div>
-</div>
+<div class="ticket-wrapper" id="ticket-capture">
+    <div class="header center">
+        <img src="../assets/img/logo.png" alt="Logo">
+        <h3><?php echo e(strtoupper($empresa_nombre)); ?></h3>
+        <div>RIF: <?php echo e($empresa_rif); ?></div>
+        <div><?php echo e($empresa_dir); ?></div>
+    </div>
 
-<div class="sep"></div>
+    <div class="sep"></div>
 
-<div><span class="bold">Información del Cliente</span></div>
-<div>Cliente: <?php echo htmlspecialchars($proforma['cliente_nombre']); ?></div>
-<div>RIF/C.I.: <?php echo htmlspecialchars($proforma['cedula_rif']); ?></div>
-<div>Vendedor: <?php echo htmlspecialchars($proforma['vendedor']); ?></div>
+    <div class="info-section">
+        <div><span class="bold">DOC:</span> <?php echo $titulo; ?> #<?php echo str_pad($id, 6, "0", STR_PAD_LEFT); ?></div>
+        <div><span class="bold">FECHA:</span> <?php echo date('d/m/Y H:i', strtotime($proforma['fecha_emision'])); ?></div>
+        <div><span class="bold">CLIENTE:</span> <?php echo e($proforma['cliente_nombre']); ?></div>
+        <div><span class="bold">RIF/CI:</span> <?php echo e($proforma['cedula_rif']); ?></div>
+    </div>
 
-<div class="center bold" style="margin: 8px 0;">
-    <h4><?php echo $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'PROFORMA / NOTA DE VENTA'; ?></h4>
-</div>
+    <div class="sep"></div>
 
-<table class="table">
-    <tr>
-        <td class="left">FACTURA:</td>
-        <td class="right"><?php echo str_pad($id, 8, "0", STR_PAD_LEFT); ?></td>
-    </tr>
-    <tr>
-        <td class="left">FECHA:</td>
-        <td class="right"><?php echo date('d-m-Y H:i', strtotime($proforma['fecha_emision'])); ?></td>
-    </tr>
-</table>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th width="45%">DESC</th>
+                <th width="20%" class="center">CANT</th>
+                <th width="35%" class="right">TOTAL</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($detalles as $d): ?>
+            <tr>
+                <td colspan="3"><?php echo e($d['producto_nombre']); ?></td>
+            </tr>
+            <tr>
+                <td><?php echo e($d['nombre_presentacion']); ?></td>
+                <td class="center"><?php echo round($d['cantidad'], 2); ?></td>
+                <td class="right"><?php echo number_format($d['subtotal_usd'], 2, ',', '.'); ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
 
-<table class="table" style="margin-top: 5px;">
-    <thead>
-        <tr class="bg-gray bold">
-            <th class="left" width="50%">DESCRIPCIÓN</th>
-            <th class="center" width="15%">CANT</th>
-            <th class="right" width="35%">TOTAL(Bs)</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach ($detalles as $d): 
-            $subtotal_bs = $d['subtotal_usd'] * $tasa_dia;
-            $precio_bs = $d['precio_unitario_usd'] * $tasa_dia;
-        ?>
-        <tr>
-            <td colspan="3"><?php echo htmlspecialchars($d['producto_nombre'] . " " . $d['nombre_presentacion']); ?></td>
-        </tr>
-        <tr>
-            <td class="left" style="padding-left: 5px;">(E) <?php echo number_format($precio_bs, 2, ',', '.'); ?></td>
-            <td class="center"><?php echo round($d['cantidad'], 2); ?></td>
-            <td class="right"><?php echo number_format($subtotal_bs, 2, ',', '.'); ?></td>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
+    <div class="sep"></div>
 
-<div class="sep"></div>
+    <div class="total-area">
+        <div class="total-row grand">
+            <span>TOTAL REF $:</span>
+            <span><?php echo number_format($proforma['total_usd'], 2, ',', '.'); ?></span>
+        </div>
+        <div class="total-row" style="font-size: 11px; margin-top: 5px;">
+            <span>TOTAL BS (TASA <?php echo number_format($tasa_dia, 2); ?>):</span>
+            <span class="bold"><?php echo number_format($total_con_iva, 2, ',', '.'); ?></span>
+        </div>
+    </div>
 
-<table class="table">
-    <tr>
-        <td class="left">EXENTO (E)</td>
-        <td class="right">0,00</td>
-    </tr>
-    <tr>
-        <td class="left">BI G (<?php echo $empresa_iva_pct; ?>%)</td>
-        <td class="right"><?php echo number_format($base_imponible, 2, ',', '.'); ?></td>
-    </tr>
-    <tr>
-        <td class="left">IVA G (<?php echo $empresa_iva_pct; ?>%)</td>
-        <td class="right"><?php echo number_format($monto_iva, 2, ',', '.'); ?></td>
-    </tr>
-    <tr class="bold" style="font-size: 13px;">
-        <td class="left">TOTAL FACTURA (Bs)</td>
-        <td class="right"><?php echo number_format($total_con_iva, 2, ',', '.'); ?></td>
-    </tr>
-    <tr class="bold">
-        <td class="left">TOTAL FACTURA ($)</td>
-        <td class="right"><?php echo number_format($proforma['total_usd'], 2, ',', '.'); ?></td>
-    </tr>
-</table>
-
-<div class="center bold" style="margin-top: 10px;">FORMA DE PAGO</div>
-<table class="table">
-    <?php if (empty($pagos)) { ?>
-        <tr><td class="left">CRÉDITO (FIADO)</td><td class="right"><?php echo number_format($total_con_iva, 2, ',', '.'); ?></td></tr>
-    <?php } else { 
-        foreach ($pagos as $p) { ?>
-        <tr>
-            <td class="left"><?php echo strtoupper($p['metodo']); ?></td>
-            <td class="right">Bs. <?php echo number_format($p['monto_entregado_bs'] > 0 ? $p['monto_entregado_bs'] : ($p['monto_equivalente_usd'] * $tasa_dia), 2, ',', '.'); ?></td>
-        </tr>
-    <?php } } ?>
-</table>
-
-<div class="sep"></div>
-<div class="center bold" style="font-size: 14px;">
-    TOTAL A COBRAR: <?php echo number_format($total_con_iva, 2, ',', '.'); ?>
+    <div class="sep"></div>
+    
+    <div class="center" style="margin-top: 10px; font-size: 10px;">
+        GRACIAS POR SU COMPRA<br>
+        *** COPIA DIGITAL ***
+    </div>
 </div>
 
-<div class="center" style="margin-top: 15px;">
-    GRACIAS POR SU COMPRA
-</div>
+<!-- Scripts al final -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="/ELPROFE/assets/js/share_comprobante.js?v=<?php echo time(); ?>"></script>
 
 <script>
-    if(new URLSearchParams(window.location.search).has('print')) {
-        setTimeout(() => { window.print(); }, 500);
-    }
-    if(new URLSearchParams(window.location.search).has('wa')) {
-        setTimeout(() => { shareAsImage(<?php echo $id; ?>, 'btn-wa', 'ticket'); }, 500);
-    }
-
     async function shareAsImage(id, btnId, tipo) {
-        let btn = document.getElementById(btnId);
-        let origHtml = btn.innerHTML;
-        btn.innerHTML = '⏳ Proc...';
-        btn.disabled = true;
+        Swal.fire({
+            title: 'Generando Ticket',
+            text: 'Preparando imagen térmica...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
 
         try {
-            if(typeof html2canvas === 'undefined') {
-                await new Promise((resolve) => {
-                    let script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-                    script.onload = resolve;
-                    document.head.appendChild(script);
-                });
-            }
-
-            // Ocultar area de botones
-            let noPrint = document.querySelector('.no-print');
-            noPrint.style.display = 'none';
-
-            let canvas = await html2canvas(document.body, { backgroundColor: '#ffffff', scale: 2 });
-            noPrint.style.display = 'block';
-
-            let base64 = canvas.toDataURL('image/png');
-
-            // Guardar en backend (Guardado Perpetuo exigido)
-            let formData = new FormData();
-            formData.append('id', id);
-            formData.append('tipo', tipo);
-            formData.append('image', base64);
-            
-            let res = await fetch('/ELPROFE/api/guardar_ticket.php', { method: 'POST', body: formData });
-            let json = await res.json();
-            
-            if(!json.success) throw new Error(json.message);
-
-            canvas.toBlob(async (blob) => {
-                let file = new File([blob], `${tipo}_${id}.png`, { type: 'image/png' });
-                
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    // Si el Dispositivo soporta compartir imagenes (Moviles/Chrome moderno)
-                    await navigator.share({
-                        title: `${tipo.toUpperCase()} #${id}`,
-                        text: 'Comprobante Electrónico Adjunto',
-                        files: [file]
-                    });
-                } else {
-                    // Si es PC Antigua y no tiene Web Share, redirigir a Wa.me con URL pública.
-                    let wa_url = "https://wa.me/?text=" + encodeURIComponent("Saludos! Adjunto comprobante virtual en este link perpetuo:\n\n" + json.url);
-                    window.open(wa_url, "_blank");
-                }
+            const captureEl = document.getElementById('ticket-capture');
+            const canvas = await html2canvas(captureEl, { 
+                backgroundColor: '#ffffff', 
+                scale: 3, // Mayor escala para tickets térmicos (fuentes monoespaciadas)
+                useCORS: true,
+                logging: false,
+                width: 250 // Ancho aproximado de 58mm en píxeles @ 96dpi
             });
 
+            canvas.toBlob(async (blob) => {
+                if (!blob) throw new Error('Error al procesar imagen.');
+
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('tipo', tipo);
+                formData.append('image', canvas.toDataURL('image/png'));
+                
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const res = await fetch('/ELPROFE/api/guardar_ticket.php', { 
+                    method: 'POST', 
+                    headers: { 'X-CSRF-Token': csrf },
+                    body: formData 
+                });
+                const json = await res.json();
+                
+                Swal.close();
+
+                const file = new File([blob], `${tipo}_${id}.png`, { type: 'image/png' });
+                const shared = await elprofeTryShareImageFile(file, `Ticket #${id}`, 'Recibo de Venta ElProfe');
+                
+                if (!shared) {
+                    elprofeFallbackShareComprobante(canvas, id, tipo, json.url);
+                }
+            }, 'image/png');
+
         } catch(e) {
-            alert('Error al generar la imagen. ' + e.message);
-        } finally {
-            btn.innerHTML = origHtml;
-            btn.disabled = false;
+            Swal.fire('Error', 'Fallo al capturar: ' + e.message, 'error');
         }
     }
 </script>

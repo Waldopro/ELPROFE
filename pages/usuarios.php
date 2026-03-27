@@ -38,6 +38,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             setFlash('error', 'No puedes auto eliminarte.');
         }
     }
+
+    if ($_POST['action'] === 'edit_user') {
+        $id = intval($_POST['user_id'] ?? 0);
+        if ($id <= 0) {
+            setFlash('error', 'Usuario inválido.');
+            header("Location: /ELPROFE/usuarios");
+            exit;
+        }
+
+        if ($id === $_SESSION['user_id']) {
+            setFlash('error', 'No puedes editar tu propia cuenta desde aquí.');
+            header("Location: /ELPROFE/usuarios");
+            exit;
+        }
+
+        $user = trim($_POST['username'] ?? '');
+        $nombre = trim($_POST['nombre'] ?? '');
+        $rol = $_POST['rol'] ?? 'CAJERO';
+        $pass = $_POST['password'] ?? '';
+
+        if ($user === '' || $nombre === '' || !in_array($rol, ['ADMIN', 'CAJERO'], true)) {
+            setFlash('error', 'Datos inválidos para editar usuario.');
+            header("Location: /ELPROFE/usuarios");
+            exit;
+        }
+
+        try {
+            if ($pass !== '') {
+                $hash = password_hash($pass, PASSWORD_BCRYPT);
+                $stmt = $pdo->prepare("UPDATE usuarios SET username = ?, password = ?, nombre = ?, rol = ? WHERE id = ?");
+                $stmt->execute([$user, $hash, $nombre, $rol, $id]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE usuarios SET username = ?, nombre = ?, rol = ? WHERE id = ?");
+                $stmt->execute([$user, $nombre, $rol, $id]);
+            }
+            setFlash('success', 'Usuario actualizado correctamente.');
+        } catch (PDOException $e) {
+            if ($e->getCode() == 23000) setFlash('error', 'El username ya existe.');
+            else setFlash('error', 'Error al actualizar usuario.');
+        }
+    }
     
     header("Location: /ELPROFE/usuarios");
     exit;
@@ -81,6 +122,15 @@ require_once '../includes/header.php';
                         <td><?php echo e(date('d/m/Y', strtotime($row['created_at']))); ?></td>
                         <td class="text-center pe-4">
                             <?php if($row['id'] !== $_SESSION['user_id']): ?>
+                            <button type="button"
+                                class="btn btn-sm btn-outline-secondary me-1 btn-editar-usuario"
+                                data-user-id="<?php echo (int)$row['id']; ?>"
+                                data-nombre="<?php echo e($row['nombre']); ?>"
+                                data-username="<?php echo e($row['username']); ?>"
+                                data-rol="<?php echo e($row['rol']); ?>"
+                                title="Editar usuario">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
                             <form method="POST" action="/ELPROFE/usuarios" class="d-inline" onsubmit="return confirm('¿Eliminar usuario? Esta acción rompe registros FK si ya interactuó. Preferiblemente se deben inactivar (Fase 2).');">
                                 <input type="hidden" name="action" value="delete_user">
                                 <input type="hidden" name="user_id" value="<?php echo $row['id']; ?>">
@@ -141,5 +191,72 @@ require_once '../includes/header.php';
     </div>
   </div>
 </div>
+
+<!-- Modal Editar Usuario -->
+<div class="modal fade" id="modalEditarUsuario" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title fw-bold">Editar Usuario</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/ELPROFE/usuarios" id="formEditarUsuario">
+        <div class="modal-body p-4">
+          <input type="hidden" name="action" value="edit_user">
+          <?php echo csrfField(); ?>
+          <input type="hidden" name="user_id" id="editar-user-id">
+
+          <div class="mb-3">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" name="nombre" class="form-control" id="editar-nombre" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Username (Credencial)</label>
+            <input type="text" name="username" class="form-control" id="editar-username" required autocomplete="off">
+          </div>
+
+          <div class="row">
+            <div class="col-12 mb-3">
+              <label class="form-label">Nueva Contraseña (opcional)</label>
+              <input type="password" name="password" class="form-control" id="editar-password" placeholder="Dejar vacío para no cambiar">
+            </div>
+          </div>
+
+          <div class="mb-1">
+            <label class="form-label">Rol del Sistema</label>
+            <select name="rol" class="form-select" id="editar-rol">
+              <option value="CAJERO">CAJERO (Acceso solo al POS y Clientes)</option>
+              <option value="ADMIN">ADMINISTRADOR (Acceso global al ERP)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary fw-bold w-100"><i class="fa-solid fa-check"></i> Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const modalEl = document.getElementById('modalEditarUsuario');
+  const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+  const form = document.getElementById('formEditarUsuario');
+
+  document.querySelectorAll('.btn-editar-usuario').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const userId = btn.getAttribute('data-user-id');
+      document.getElementById('editar-user-id').value = userId;
+      document.getElementById('editar-nombre').value = btn.getAttribute('data-nombre');
+      document.getElementById('editar-username').value = btn.getAttribute('data-username');
+      document.getElementById('editar-rol').value = btn.getAttribute('data-rol');
+      document.getElementById('editar-password').value = '';
+      if(modal) modal.show();
+    });
+  });
+});
+</script>
 
 <?php require_once '../includes/footer.php'; ?>

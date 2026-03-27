@@ -4,23 +4,96 @@ require_once '../includes/functions.php';
 checkLogin();
 restrictAdmin();
 
-// Formulario de catalogar producto base
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_producto') {
+// Formulario de catalogar producto completo
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_producto_completo') {
     verifyCsrfToken($_POST['csrf_token'] ?? '');
     
-    $nombre = trim($_POST['nombre']);
-    if (empty($nombre)) {
-        setFlash('error', 'Faltan datos.');
-    } else {
-        try {
-            // Se inserta producto base
-            $stmt = $pdo->prepare("INSERT INTO productos (nombre, stock_actual, costo_promedio_usd) VALUES (?, 0.00, 0.00)");
-            $stmt->execute([$nombre]);
-            setFlash('success', 'Producto base creado.');
-        } catch (\PDOException $e) {
+    $codigo_barras = trim($_POST['codigo_barras'] ?? '');
+    $marca = trim($_POST['marca'] ?? '');
+    $nombre = trim($_POST['nombre'] ?? '');
+    $categoria_id = intval($_POST['categoria_id'] ?? 0);
+    $costo_usd = floatval($_POST['costo_usd'] ?? 0);
+    $precio_usd = floatval($_POST['precio_usd'] ?? 0);
+    $stock_actual = floatval($_POST['stock_actual'] ?? 0);
+    $stock_minimo = floatval($_POST['stock_minimo'] ?? 0);
+    $exento_iva = isset($_POST['exento_iva']) ? 1 : 0;
+    
+    if (empty($nombre) || empty($codigo_barras) || $precio_usd <= 0) {
+        setFlash('error', 'Faltan datos obligatorios (Nombre, Código, Precio).');
+        header("Location: /ELPROFE/inventario");
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        // 1. Insert product
+        $stmt_prod = $pdo->prepare("INSERT INTO productos (codigo_interno, nombre, marca, categoria_id, stock_minimo, exento_iva, costo_promedio_usd, stock_actual) VALUES (?, ?, ?, ?, ?, ?, ?, 0)"); 
+        // stock_actual is 0 initially, will be updated by purchase if > 0
+        $stmt_prod->execute([$codigo_barras, $nombre, $marca, $categoria_id > 0 ? $categoria_id : null, $stock_minimo, $exento_iva, $costo_usd]);
+        $producto_id = $pdo->lastInsertId();
+
+        // 2. Foto upload (if provided inline)
+        if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['foto'];
+            $exts = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            
+            if (array_key_exists($mime, $exts) && $file['size'] <= 2 * 1024 * 1024) {
+                $uploadDir = __DIR__ . '/../assets/img/productos/';
+                if(!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                $filename = 'prod_' . $producto_id . '_' . time() . '.' . $exts[$mime];
+                if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
+                    $pdo->prepare("UPDATE productos SET foto = ? WHERE id = ?")->execute([$filename, $producto_id]);
+                }
+            }
+        }
+
+        // 3. Create default presentation 'Unidad'
+        $stmt_pres = $pdo->prepare("INSERT INTO presentaciones (producto_id, nombre_presentacion, factor_conversion, precio_venta_usd, codigo_barras) VALUES (?, 'Unidad', 1.00, ?, ?)");
+        $stmt_pres->execute([$producto_id, $precio_usd, $codigo_barras]);
+        $presentacion_id = $pdo->lastInsertId();
+
+        // 4. Initial Stock via Purchase
+        if ($stock_actual > 0) {
+            // Find or create "Inventario Inicial" provider
+            $stmt_prov = $pdo->prepare("SELECT id FROM proveedores WHERE rif = 'J-00000000-0' LIMIT 1");
+            $stmt_prov->execute();
+            $prov_id = $stmt_prov->fetchColumn();
+            if (!$prov_id) {
+                $pdo->exec("INSERT INTO proveedores (nombre, rif) VALUES ('Inventario Inicial', 'J-00000000-0')");
+                $prov_id = $pdo->lastInsertId();
+            }
+
+            // Get current Tasa
+            $tasa = getTasaBcv($pdo);
+
+            // Purchase header
+            $total_usd = $stock_actual * $costo_usd;
+            $total_bs = $total_usd * $tasa;
+            $factura_numero = 'INV-INI-' . time();
+            $stmt_comp  = $pdo->prepare("INSERT INTO compras (proveedor_id, factura_numero, tasa_bs_usd, total_usd, total_bs) VALUES (?, ?, ?, ?, ?)");
+            $stmt_comp->execute([$prov_id, $factura_numero, $tasa, $total_usd, $total_bs]);
+            $compra_id = $pdo->lastInsertId();
+
+            // Purchase detail (triggers stock increase and avg cost update)
+            $stmt_det = $pdo->prepare("INSERT INTO compra_detalles (compra_id, presentacion_id, cantidad, costo_unitario_usd, costo_total_usd) VALUES (?, ?, ?, ?, ?)");
+            $stmt_det->execute([$compra_id, $presentacion_id, $stock_actual, $costo_usd, $total_usd]);
+        }
+
+        $pdo->commit();
+        setFlash('success', 'Producto creado exitosamente.');
+    } catch (\PDOException $e) {
+        $pdo->rollBack();
+        if ($e->getCode() == 23000) {
+            setFlash('error', 'El código de barras ya existe.');
+        } else {
             setFlash('error', 'Error al crear producto: ' . $e->getMessage());
         }
     }
+
     header("Location: /ELPROFE/inventario");
     exit;
 }
@@ -60,8 +133,8 @@ require_once '../includes/header.php';
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i> Inventario & Catálogo</h2>
     <div>
-        <button class="btn btn-secondary me-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalProducto">
-            <i class="fa-solid fa-folder-plus me-1"></i> 1. Nuevo Producto Base
+        <button class="btn btn-primary me-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalProductoCompleto">
+            <i class="fa-solid fa-plus me-1"></i> 1. Nuevo Producto
         </button>
         <button class="btn btn-primary me-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalPresentacion">
             <i class="fa-solid fa-barcode me-1"></i> 2. Añadir Presentación
@@ -166,27 +239,89 @@ require_once '../includes/header.php';
   </div>
 </div>
 
-<!-- Modal Nuevo Producto Base -->
-<div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
+
+
+<!-- Modal Nuevo Producto Completo -->
+<div class="modal fade" id="modalProductoCompleto" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title fw-bold text-primary">1. Agregar Producto Base</h5>
+        <h5 class="modal-title fw-bold text-primary">Nuevo Producto</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form method="POST" action="/ELPROFE/inventario">
+      <form method="POST" action="/ELPROFE/inventario" enctype="multipart/form-data">
           <div class="modal-body">
-            <input type="hidden" name="action" value="save_producto">
+            <input type="hidden" name="action" value="save_producto_completo">
             <?php echo csrfField(); ?>
-            <div class="mb-3">
-                <label class="form-label text-muted small">Nombre / Descripción Genérica *</label>
-                <input type="text" name="nombre" class="form-control" required placeholder="Ej: Bolígrafo Bic Cristal Azul">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label text-muted small">Código de Barras *</label>
+                    <input type="text" name="codigo_barras" class="form-control" required placeholder="Escanee o escriba...">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label text-muted small">Marca</label>
+                    <input type="text" name="marca" class="form-control" placeholder="Ej: Sony, Samsung...">
+                </div>
             </div>
-            <p class="small text-muted mb-0"><i class="fa-solid fa-circle-info"></i> Tras crearlo, deberás añadirle sus presentaciones (Unidades, Cajas, Bultos).</p>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Descripción *</label>
+                <input type="text" name="nombre" class="form-control" required placeholder="Nombre detallado del producto">
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Categoría</label>
+                <select name="categoria_id" class="form-select">
+                    <option value="">Seleccione...</option>
+                    <?php 
+                    $cats = $pdo->query("SELECT id, nombre FROM categorias ORDER BY nombre")->fetchAll();
+                    foreach($cats as $c): ?>
+                        <option value="<?php echo $c['id']; ?>"><?php echo e($c['nombre']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label text-muted small">Costo USD</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" step="0.01" min="0" name="costo_usd" id="np_costo" class="form-control" value="0.00">
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label text-muted small">Margen (%)</label>
+                    <input type="number" step="0.01" min="0" id="np_margen" class="form-control" value="30">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label text-muted small">Precio USD *</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" step="0.01" min="0.01" name="precio_usd" id="np_precio" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label text-muted small">Stock Actual (Inicial)</label>
+                    <input type="number" step="any" min="0" name="stock_actual" class="form-control" value="0">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label text-muted small">Stock Mínimo</label>
+                    <input type="number" step="any" min="0" name="stock_minimo" class="form-control" value="5">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Imagen</label>
+                <input type="file" name="foto" class="form-control" accept="image/jpeg, image/png, image/webp">
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="exento_iva" value="1" id="np_exento">
+                <label class="form-check-label" for="np_exento">
+                    Producto Exento de IVA
+                </label>
+            </div>
           </div>
           <div class="modal-footer pb-3">
             <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-secondary px-4 fw-bold shadow-sm"><i class="fa-solid fa-save"></i> Crear Padre</button>
+            <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="fa-solid fa-save"></i> Guardar Producto</button>
           </div>
       </form>
     </div>
@@ -299,6 +434,16 @@ function imprimirEtiqueta() {
 }
 
 $(document).ready(function() {
+
+    // Calculation of Precio USD from Costo and Margen
+    function calcPrecio() {
+        let costo = parseFloat($('#np_costo').val()) || 0;
+        let margen = parseFloat($('#np_margen').val()) || 0;
+        let precio = costo + (costo * (margen / 100));
+        $('#np_precio').val(precio.toFixed(2));
+    }
+    $('#np_costo, #np_margen').on('input', calcPrecio);
+
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
     $('#csrf_token_foto').val(csrfToken);
 

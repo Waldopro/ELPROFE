@@ -2,10 +2,32 @@
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
 checkLogin();
+// Regla POS: no se puede vender sin caja abierta.
+requireCajaAbierta($pdo);
 
 // Fetch metodos for the Modal
 $stmtMetodos = $pdo->query("SELECT * FROM metodos_pago WHERE activo = 1 ORDER BY id ASC");
 $metodosPago = $stmtMetodos->fetchAll();
+
+// Historial de proformas para el POS (se muestra en el modal)
+$stmtProfs = $pdo->prepare("
+    SELECT 
+        p.id,
+        p.fecha_emision,
+        p.tipo_documento,
+        p.total_usd,
+        p.saldo_pendiente_usd,
+        p.estado,
+        c.nombre AS cliente_nombre,
+        u.nombre AS vendedor_nombre
+    FROM proformas p
+    JOIN clientes c ON p.cliente_id = c.id
+    JOIN usuarios u ON p.cajero_id = u.id
+    ORDER BY p.id DESC
+    LIMIT 200
+");
+$stmtProfs->execute();
+$proformasHist = $stmtProfs->fetchAll();
 
 require_once '../includes/header.php';
 ?>
@@ -13,7 +35,9 @@ require_once '../includes/header.php';
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-cart-shopping me-2"></i> Punto de Venta</h2>
     <div>
-        <button class="btn btn-outline-secondary me-2"><i class="fa-solid fa-clock-rotate-left"></i> Historial (Proformas)</button>
+        <button type="button" class="btn btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#modalHistorialProformas">
+            <i class="fa-solid fa-clock-rotate-left"></i> Historial (Proformas)
+        </button>
     </div>
 </div>
 
@@ -68,6 +92,7 @@ require_once '../includes/header.php';
                 <div class="fs-5 text-white-50">Bs: <span id="gran-total-bs">0.00</span></div>
             </div>
         </div>
+        <span id="tasa-actual" class="d-none"><?php echo floatval(getConfig('tasa_usd_bs', $pdo)); ?></span>
         
         <div class="card shadow-sm border-0">
             <div class="card-body p-4">
@@ -179,5 +204,76 @@ require_once '../includes/header.php';
 </div>
 
 <script src="/ELPROFE/assets/js/pos.js"></script>
+
+<!-- Modal: Historial de Proformas -->
+<div class="modal fade" id="modalHistorialProformas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fa-solid fa-receipt me-2"></i> Historial de Proformas</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light">
+              <tr>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Cliente</th>
+                <th class="text-end">Total (USD)</th>
+                <th class="text-end">Saldo (USD)</th>
+                <th>Estado</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (count($proformasHist) > 0): ?>
+                <?php foreach ($proformasHist as $p): ?>
+                  <?php
+                    $estadoBadge = 'bg-secondary';
+                    if ($p['estado'] === 'PAGADO') $estadoBadge = 'bg-success';
+                    if ($p['estado'] === 'PARCIAL') $estadoBadge = 'bg-warning text-dark';
+                    if ($p['estado'] === 'PENDIENTE') $estadoBadge = 'bg-danger';
+                  ?>
+                  <tr>
+                    <td class="fw-bold">#<?php echo (int)$p['id']; ?></td>
+                    <td><?php echo e(date('d/m/Y H:i', strtotime($p['fecha_emision']))); ?></td>
+                    <td><span class="badge bg-dark"><?php echo e($p['tipo_documento']); ?></span></td>
+                    <td><?php echo e($p['cliente_nombre']); ?></td>
+                    <td class="text-end text-success fw-bold">$<?php echo formatMoney((float)$p['total_usd']); ?></td>
+                    <td class="text-end">$<?php echo formatMoney((float)$p['saldo_pendiente_usd']); ?></td>
+                    <td><span class="badge <?php echo $estadoBadge; ?>"><?php echo e($p['estado']); ?></span></td>
+                    <td class="text-center">
+                      <a class="btn btn-sm btn-primary" target="_blank" href="/ELPROFE/pages/ticket.php?id=<?php echo (int)$p['id']; ?>">
+                        <i class="fa-solid fa-receipt"></i>
+                      </a>
+                      <a class="btn btn-sm btn-warning text-dark ms-1" target="_blank" href="/ELPROFE/pages/nota_entrega.php?id=<?php echo (int)$p['id']; ?>">
+                        <i class="fa-solid fa-file-pdf"></i>
+                      </a>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-5">
+                    <i class="fa-solid fa-inbox fa-2x mb-2 d-block"></i>
+                    Aún no hay proformas registradas.
+                  </td>
+                </tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="text-muted small">
+          Mostrando últimos <strong><?php echo count($proformasHist); ?></strong> registros.
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <?php require_once '../includes/footer.php'; ?>

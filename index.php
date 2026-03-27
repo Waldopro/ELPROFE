@@ -23,6 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = $stmt->fetch();
         
         if ($row && password_verify($pass, $row['password'])) {
+            // Evitar fijación de sesión: regenerar ID justo al iniciar sesión.
+            session_regenerate_id(true);
             $_SESSION['user_id'] = $row['id'];
             $_SESSION['user_name'] = $row['nombre'];
             $_SESSION['user_role'] = $row['rol'];
@@ -53,9 +55,9 @@ require_once 'includes/header.php';
         <div class="card shadow-lg p-5 border-0 bg-transparent" style="backdrop-filter: blur(10px); background: rgba(255,255,255,0.05) !important;">
             <div class="card-body">
                 <div class="text-center mb-4">
-                    <i class="fa-solid fa-graduation-cap fa-4x text-primary shadow-sm mb-3"></i>
+                    <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="140" height="140" class="mb-3 rounded-circle bg-white p-2 shadow-sm elprofe-login-logo">
                     <h2 class="fw-bold mb-0">ELPROFE</h2>
-                    <p class="text-muted">Punto de Venta</p>
+                    <p class="text-muted small">Inventario & Punto de Venta</p>
                 </div>
                 
                 <?php if($error): ?>

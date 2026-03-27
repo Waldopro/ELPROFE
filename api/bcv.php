@@ -2,15 +2,15 @@
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
+header('Content-Type: application/json');
+checkLogin();
+verifyCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
+
 if (!isAdmin()) {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Permiso denegado.']);
-    exit;
+    responseJson(['success' => false, 'message' => 'Permiso denegado.'], 403);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Content-Type: application/json');
-    
     require_once 'bcv_scraper.php';
     
     $tasa_result = actualizarTasaManual($pdo);
@@ -26,26 +26,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if ($tasa_float > 0) {
-        echo json_encode([
+        responseJson([
             'success' => true, 
             'tasa' => $tasa_float, 
             'message' => 'Tasa BCV obtenida exitosamente.'
         ]);
-        exit;
     } else {
         // En caso de que sea fin de semana o falle, intentamos forzar obtener la de Base de Datos
         $stmt = $pdo->query("SELECT usd FROM tasas_bcv ORDER BY fecha DESC LIMIT 1");
         $last_tasa = $stmt->fetchColumn();
         
         if ($last_tasa) {
-            echo json_encode([
+            responseJson([
                 'success' => true, 
                 'tasa' => floatval($last_tasa), 
                 'message' => 'Tasa recuperada de la base de datos (Fin de Semana u Offline).'
             ]);
-            exit;
         }
         
-        echo json_encode(['success' => false, 'message' => 'Fallo la extracción desde el servidor del BCV.']);
+        responseJson(['success' => false, 'message' => 'Fallo la extracción desde el servidor del BCV.'], 502);
     }
 }
+responseJson(['success' => false, 'message' => 'Método no permitido'], 405);

@@ -2,6 +2,8 @@
 const POS = (() => {
     let cart = [];
     let currentClienteId = 0;
+    let reservationId = parseInt(localStorage.getItem('elprofe_reservation_id') || '0', 10) || 0;
+    let deviceId = localStorage.getItem('elprofe_device_id') || '';
     
     const elements = {
         buscador: $('#buscador-producto'),
@@ -15,8 +17,67 @@ const POS = (() => {
         holdCount: $('#hold-count')
     };
 
-    const tasa = parseFloat($('#tasa-actual').text().replace(/,/g, ''));
+    // La tasa es crítica para cálculos en Bs. Evitamos NaN por selectores inexistentes.
+    let tasa = parseFloat(($('#tasa-actual').text() || '').toString().replace(/,/g, ''));
+    if (!isFinite(tasa) || tasa <= 0) tasa = 0;
     let hold_bills = JSON.parse(localStorage.getItem('hold_bills')) || [];
+    let reservaTimer = null;
+
+    function ensureDeviceId() {
+        if (deviceId) return deviceId;
+        deviceId = (crypto?.randomUUID?.() || ('dev_' + Date.now() + '_' + Math.random().toString(16).slice(2)));
+        deviceId = deviceId.replace(/[^a-zA-Z0-9_-]/g, '');
+        localStorage.setItem('elprofe_device_id', deviceId);
+        return deviceId;
+    }
+
+    function cartToReservaItems() {
+        return cart.map((c) => ({ presentacion_id: c.presentacion_id, cantidad: c.cantidad }));
+    }
+
+    function syncReserva(estado = 'ACTIVE') {
+        clearTimeout(reservaTimer);
+        reservaTimer = setTimeout(() => {
+            const items = cartToReservaItems();
+            const csrf = $('meta[name="csrf-token"]').attr('content') || '';
+
+            if (items.length === 0) {
+                if (reservationId > 0) {
+                    $.ajax({
+                        url: '/ELPROFE/api/reservas.php',
+                        type: 'POST',
+                        dataType: 'json',
+                        headers: { 'X-CSRF-Token': csrf },
+                        data: { action: 'delete', reservation_id: reservationId, device_id: ensureDeviceId() }
+                    }).always(() => {
+                        reservationId = 0;
+                        localStorage.setItem('elprofe_reservation_id', '0');
+                    });
+                }
+                return;
+            }
+
+            $.ajax({
+                url: '/ELPROFE/api/reservas.php',
+                type: 'POST',
+                dataType: 'json',
+                headers: { 'X-CSRF-Token': csrf },
+                data: {
+                    action: 'upsert',
+                    reservation_id: reservationId,
+                    device_id: ensureDeviceId(),
+                    estado: estado,
+                    ttl_seconds: 240,
+                    items: JSON.stringify(items)
+                }
+            }).done((res) => {
+                if (res && res.success && res.reservation_id) {
+                    reservationId = parseInt(res.reservation_id, 10) || 0;
+                    localStorage.setItem('elprofe_reservation_id', String(reservationId));
+                }
+            });
+        }, 250);
+    }
 
     function renderCart() {
         elements.tabla.empty();
@@ -50,7 +111,7 @@ const POS = (() => {
         }
         
         elements.totalUSD.text('$' + granTotal.toFixed(2));
-        elements.totalBS.text((granTotal * tasa).toFixed(2));
+        elements.totalBS.text(tasa > 0 ? (granTotal * tasa).toFixed(2) : '0.00');
     }
 
     function updateHoldCount() {
@@ -63,6 +124,14 @@ const POS = (() => {
     }
 
     function addToCart(producto) {
+        // Validación de disponibilidad (si viene del API con reservas)
+        if (producto && typeof producto.stock_disponible_presentaciones !== 'undefined') {
+            const disp = parseFloat(producto.stock_disponible_presentaciones);
+            if (isFinite(disp) && disp <= 0) {
+                Swal.fire({toast: true, position: 'top-end', icon: 'warning', title: 'No disponible (reservado o sin stock)', showConfirmButton: false, timer: 1600});
+                return;
+            }
+        }
         const exist = cart.find(p => p.presentacion_id === producto.presentacion_id);
         if (exist) {
             exist.cantidad++;
@@ -78,6 +147,7 @@ const POS = (() => {
             });
         }
         renderCart();
+        syncReserva('ACTIVE');
     }
 
     function initEvents() {
@@ -85,17 +155,18 @@ const POS = (() => {
         elements.buscador.on('keyup change', function(e) {
             const q = $(this).val();
             if (q.length >= 2) {
-                $.get('/ELPROFE/api/ventas.php', { action: 'buscar_producto', q: q }, function(res) {
+                $.get('/ELPROFE/api/ventas.php', { action: 'buscar_producto', q: q, reservation_id: reservationId }, function(res) {
                     elements.resultados.empty().show();
                     if(res.length > 0) {
                         res.forEach(prod => {
-                            let maxPresentaciones = Math.floor(parseFloat(prod.stock_actual) / parseFloat(prod.factor_conversion));
-                            elements.resultados.append(`<a href="#" class="list-group-item list-group-item-action product-result" data-prod='${JSON.stringify(prod)}'>
+                            let maxPresentaciones = parseInt(prod.stock_disponible_presentaciones ?? 0, 10);
+                            const disabled = maxPresentaciones <= 0 ? ' disabled opacity-50' : '';
+                            elements.resultados.append(`<a href="#" class="list-group-item list-group-item-action product-result${disabled}" data-prod='${JSON.stringify(prod)}'>
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">${prod.nombre_completo}</h6>
                                     <small class="text-primary fw-bold">$${parseFloat(prod.precio_venta_usd).toFixed(2)}</small>
                                 </div>
-                                <small>Código: ${prod.codigo_barras} | Disponible: ${maxPresentaciones} (Unds Global: ${parseFloat(prod.stock_actual)})</small>
+                                <small>Código: ${prod.codigo_barras} | Disponible: ${maxPresentaciones} (Unds Disp: ${parseFloat(prod.stock_disponible_unidades || 0)})</small>
                             </a>`);
                         });
                     } else {
@@ -110,6 +181,7 @@ const POS = (() => {
         // Seleccionar de la lista de resultados
         $(document).on('click', '.product-result', function(e) {
             e.preventDefault();
+            if ($(this).hasClass('disabled')) return;
             const prod = $(this).data('prod');
             addToCart(prod);
             elements.resultados.hide();
@@ -138,17 +210,20 @@ const POS = (() => {
         $(document).on('click', '.btn-plus', function() {
             cart[$(this).data('index')].cantidad++;
             renderCart();
+            syncReserva('ACTIVE');
         });
         
         $(document).on('click', '.btn-minus', function() {
             let item = cart[$(this).data('index')];
             if(item.cantidad > 1) item.cantidad--;
             renderCart();
+            syncReserva('ACTIVE');
         });
         
         $(document).on('click', '.btn-remove', function() {
             cart.splice($(this).data('index'), 1);
             renderCart();
+            syncReserva('ACTIVE');
         });
         
         // Ocultar dropdown clic afuera
@@ -165,6 +240,9 @@ const POS = (() => {
             if(cart.length === 0) {
                 Swal.fire('Atención', 'El carrito está vacío', 'warning'); return false;
             }
+            // refrescar tasa desde el modal/DOM por si fue actualizada por admin sin recargar
+            const tasaModal = parseFloat(($('#modal-tasa-actual').text() || '').toString().replace(/,/g, ''));
+            if (isFinite(tasaModal) && tasaModal > 0) tasa = tasaModal;
             totalUSDRequerido = cart.reduce((acc, p) => acc + (p.precio * p.cantidad), 0);
             $('#modal-pagar-usd').text('$' + totalUSDRequerido.toFixed(2));
             $('#modal-resta-usd').text('$' + totalUSDRequerido.toFixed(2));
@@ -211,7 +289,7 @@ const POS = (() => {
             let docType = $('#modal-tipo-doc').val() || 'PROFORMA';
             procesarVenta('FIADO', [], docType); 
         });
-        $('#btn-anular').click(function() { cart = []; renderCart(); elements.buscador.focus(); });
+        $('#btn-anular').click(function() { cart = []; renderCart(); syncReserva('ACTIVE'); elements.buscador.focus(); });
         
         // Buscar Cliente al salir del input cedula
         elements.clienteCedula.on('blur', function() {
@@ -245,6 +323,7 @@ const POS = (() => {
             hold_bills.push({
                 id: Date.now(),
                 label: ticketName,
+                reservation_id: reservationId,
                 cart: JSON.parse(JSON.stringify(cart)),
                 clienteId: currentClienteId,
                 clienteCedula: elements.clienteCedula.val(),
@@ -256,6 +335,12 @@ const POS = (() => {
             
             // Limpiar
             cart = [];
+            // Mantener reserva como HOLD y resetear la actual
+            if (reservationId > 0) {
+                syncReserva('HOLD');
+                reservationId = 0;
+                localStorage.setItem('elprofe_reservation_id', '0');
+            }
             currentClienteId = 0;
             elements.clienteCedula.val('V-00000000');
             elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
@@ -302,12 +387,16 @@ const POS = (() => {
                             elements.clienteCedula.val(billToRestore.clienteCedula);
                             elements.clienteNombre.val(billToRestore.clienteNombre);
                             if (currentClienteId > 0) elements.clienteNombre.prop('disabled', true);
+
+                            reservationId = parseInt(billToRestore.reservation_id || '0', 10) || 0;
+                            localStorage.setItem('elprofe_reservation_id', String(reservationId));
                             
                             // Remover del array
                             hold_bills.splice(idx, 1);
                             localStorage.setItem('hold_bills', JSON.stringify(hold_bills));
                             updateHoldCount();
                             renderCart();
+                            syncReserva('ACTIVE');
                             Swal.close();
                             elements.buscador.focus();
                         };
@@ -345,13 +434,16 @@ const POS = (() => {
             tipo_doc: tipoDoc,
             cliente_id: currentClienteId,
             productos: JSON.stringify(cart),
-            pagos: JSON.stringify(arrayPagos)
+            pagos: JSON.stringify(arrayPagos),
+            reservation_id: reservationId,
+            device_id: ensureDeviceId()
         }, function(res) {
             if(res.success) {
                 // Generar URLs para comprobantes
-                const urlTicket = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}`;
-                const urlWa = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}&wa=1`;
-                const urlPdf = `/ELPROFE/pages/nota_entrega.php?id=${res.proforma_id}`;
+                const shareToken = res.share_token || '';
+                const urlTicket = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}`;
+                const urlWa = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}&wa=1`;
+                const urlPdf = `/ELPROFE/pages/nota_entrega.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}`;
                 
                 Swal.fire({
                     title: '¡Operación Exitosa!',
@@ -376,6 +468,8 @@ const POS = (() => {
                     allowOutsideClick: false
                 }).then(() => {
                     cart = [];
+                    reservationId = 0;
+                    localStorage.setItem('elprofe_reservation_id', '0');
                     currentClienteId = 0;
                     elements.clienteCedula.val('V-00000000');
                     elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
@@ -388,7 +482,7 @@ const POS = (() => {
         });
     }
 
-    return { init: () => { renderCart(); updateHoldCount(); initEvents(); elements.buscador.focus(); } };
+    return { init: () => { ensureDeviceId(); renderCart(); updateHoldCount(); initEvents(); elements.buscador.focus(); if (cart.length > 0) syncReserva('ACTIVE'); } };
 })();
 
 $(document).ready(function() { POS.init(); });

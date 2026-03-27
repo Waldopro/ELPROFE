@@ -4,9 +4,9 @@ const ASSETS_TO_CACHE = [
     '/ELPROFE/manifest.json',
     '/ELPROFE/assets/css/style.css',
     '/ELPROFE/assets/js/main.js',
-    // Las páginas dinámicas no se cachean en PWA básicas de POS,
-    // pero podemos definir una página de fallback o cachear la app shell.
-    // De momento, proveemos offline fallback solo para assets gráficos/JS
+    '/ELPROFE/assets/img/logo.png',
+    '/ELPROFE/assets/img/favicon.ico',
+    '/ELPROFE/assets/img/android-icon-192x192.png'
 ];
 
 self.addEventListener('install', event => {
@@ -20,16 +20,23 @@ self.addEventListener('install', event => {
 self.addEventListener('fetch', event => {
     // Si la solicitud no es GET o no es HTTP, se omite
     if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) return;
-    
+
+    const url = new URL(event.request.url);
+    const isAsset = ASSETS_TO_CACHE.some(asset => url.pathname.endsWith(asset));
+
     event.respondWith(
         fetch(event.request).catch(() => {
             return caches.match(event.request).then(response => {
                 if (response) return response;
                 
-                // Si falla fetch() por red, y el cache no tiene el archivo (paginas dinamicas PHP)
-                // Se debe retornar una clase <Response> para no bloquear ServiceWorker.
+                // Solo si es un asset conocido y falla, dar error
+                if (isAsset) {
+                    return new Response("Asset offline y no cacheado.", { status: 404 });
+                }
+                
+                // Si es una página PHP y estamos offline sin cache
                 return new Response(
-                    "Error de Conexión: Estás sin conexión o el servidor no responde. No se puede cargar esta pantalla dinámica.", 
+                    "Error de Conexión: Estás sin conexión o el servidor no responde.", 
                     {
                         status: 503,
                         statusText: "Service Unavailable",

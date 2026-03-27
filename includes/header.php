@@ -15,9 +15,29 @@ if (!defined('NO_LOGIN_REQUIRED')) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?php echo generateCsrfToken(); ?>">
     <title>ELPROFE - Sistema POS</title>
+    
+    <!-- Favicons -->
+    <link rel="apple-touch-icon" sizes="57x57" href="/ELPROFE/assets/img/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/ELPROFE/assets/img/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/ELPROFE/assets/img/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/ELPROFE/assets/img/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/ELPROFE/assets/img/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/ELPROFE/assets/img/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/ELPROFE/assets/img/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/ELPROFE/assets/img/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/ELPROFE/assets/img/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192"  href="/ELPROFE/assets/img/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/ELPROFE/assets/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/ELPROFE/assets/img/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/ELPROFE/assets/img/favicon-16x16.png">
+    <link rel="shortcut icon" href="/ELPROFE/assets/img/favicon.ico" type="image/x-icon">
+    
     <!-- PWA Manifest -->
     <link rel="manifest" href="/ELPROFE/manifest.json">
-    <meta name="theme-color" content="#0d6efd">
+    <meta name="msapplication-TileColor" content="#002157">
+    <meta name="msapplication-TileImage" content="/ELPROFE/assets/img/ms-icon-144x144.png">
+    <meta name="theme-color" content="#002157">
+    
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -33,77 +53,233 @@ if (!defined('NO_LOGIN_REQUIRED')) {
 <body class="d-flex flex-column min-vh-100">
 
 <?php if (isset($_SESSION['user_id'])): ?>
-<!-- Navbar para vista logueada -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
-  <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="/ELPROFE/dashboard"><i class="fa-solid fa-graduation-cap"></i> ELPROFE</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav me-auto">
-        <?php if (basename($_SERVER['PHP_SELF']) !== 'dashboard.php'): ?>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/dashboard"><i class="fa-solid fa-house"></i> Inicio (F1)</a>
-        </li>
-        <?php endif; ?>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/ventas"><i class="fa-solid fa-cart-shopping"></i> Ventas (F2)</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/proformas"><i class="fa-solid fa-file-invoice"></i> Cobranza (Fiados)</a>
-        </li>
-        <?php if (isAdmin()): ?>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/inventario"><i class="fa-solid fa-boxes-stacked"></i> Inventario (F3)</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/compras"><i class="fa-solid fa-truck-fast"></i> Compras (F4)</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/proveedores"><i class="fa-solid fa-truck-field"></i> Proveedores</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/caja"><i class="fa-solid fa-cash-register"></i> Auditoría Caja</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/bitacora"><i class="fa-solid fa-shield-halved"></i> Bitácora</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/usuarios"><i class="fa-solid fa-users-gear"></i> Usuarios</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/configuracion"><i class="fa-solid fa-gears"></i> Servidor POS</a>
-        </li>
-        <?php endif; ?>
-        <li class="nav-item">
-          <a class="nav-link" href="/ELPROFE/clientes"><i class="fa-solid fa-users"></i> Clientes</a>
-        </li>
-      </ul>
-      <div class="d-flex align-items-center">
-        <!-- Indicador de Tasa Solo Lectura -->
-        <span class="badge bg-dark text-white border border-secondary me-3 p-2 fs-6 shadow-sm">
+<?php
+  $uri = $_SERVER['REQUEST_URI'] ?? '';
+  $isActive = function(string $needle) use ($uri): bool {
+      return strpos($uri, $needle) !== false;
+  };
+?>
+
+<div class="elprofe-app">
+  <!-- Topbar -->
+  <div class="elprofe-topbar shadow-sm">
+    <div class="container-fluid px-3">
+      <div class="d-flex align-items-center justify-content-between py-2">
+        <a class="elprofe-brand fw-bold d-flex align-items-center text-decoration-none" href="/ELPROFE/dashboard">
+          <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="38" height="38" class="me-2 rounded-circle bg-white p-1">
+          <span>ELPROFE</span>
+        </a>
+
+        <div class="d-flex align-items-center gap-2">
+          <!-- Indicador de Tasa Solo Lectura -->
+          <span class="badge bg-dark text-white border border-secondary p-2 fs-6 shadow-sm elprofe-tasa d-none d-md-inline-flex">
             Tasa: Bs. <span id="tasa-actual"><?php echo number_format(getConfig('tasa_usd_bs', $pdo), 2); ?></span>
             <small class="ms-1 text-primary fw-bold">[<?php echo getConfig('tasa_tipo', $pdo) ?: 'FIJA'; ?>]</small>
-        </span>
-        <!-- Theme Toggle -->
-        <button class="btn btn-outline-light me-3" id="theme-toggle" title="Cambiar Tema (Alt+T)">
+          </span>
+
+          <!-- Theme Toggle -->
+          <button class="btn btn-outline-light" id="theme-toggle" title="Cambiar Tema (Alt+T)">
             <i class="fa-solid fa-moon"></i>
-        </button>
-        <!-- User Dropdown -->
-        <div class="dropdown">
-          <a class="text-white text-decoration-none dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            <i class="fa-solid fa-user-circle fa-lg"></i> <?php echo htmlspecialchars($_SESSION['user_name']); ?>
-          </a>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="/ELPROFE/logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</a></li>
-          </ul>
+          </button>
+
+          <!-- Mobile menu button -->
+          <button class="btn btn-outline-light d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#elprofeSidebarOffcanvas" aria-controls="elprofeSidebarOffcanvas" aria-label="Abrir menú">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+
+          <!-- User Dropdown -->
+          <div class="dropdown">
+            <a class="text-white text-decoration-none dropdown-toggle elprofe-user-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fa-solid fa-user-circle fa-lg me-1"></i>
+              <span class="d-none d-sm-inline"><?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="/ELPROFE/logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</a></li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</nav>
-<main class="container-fluid flex-grow-1 px-4">
+
+  <div class="elprofe-body d-flex">
+    <!-- Sidebar (desktop) -->
+    <nav class="elprofe-sidebar d-none d-lg-flex flex-column" aria-label="Menú principal">
+      <div class="elprofe-sidebar-inner">
+        <div class="elprofe-nav-section">
+          <div class="elprofe-nav-section-title">Caja & Ventas</div>
+          <a href="/ELPROFE/dashboard" class="elprofe-nav-link <?php echo $isActive('/dashboard') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-house"></i>
+            <span>Inicio</span>
+            <span class="elprofe-nav-shortcut ms-auto">F1</span>
+          </a>
+          <a href="/ELPROFE/mi_caja" class="elprofe-nav-link <?php echo $isActive('/mi_caja') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-cash-register"></i>
+            <span>Mi Caja</span>
+          </a>
+          <a href="/ELPROFE/ventas" class="elprofe-nav-link <?php echo $isActive('/ventas') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-cart-shopping"></i>
+            <span>Ventas</span>
+            <span class="elprofe-nav-shortcut ms-auto">F2</span>
+          </a>
+          <a href="/ELPROFE/proformas" class="elprofe-nav-link <?php echo $isActive('/proformas') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-file-invoice"></i>
+            <span>Cobranza</span>
+            <span class="elprofe-nav-pill ms-auto">Fiados</span>
+          </a>
+          <a href="/ELPROFE/clientes" class="elprofe-nav-link <?php echo $isActive('/clientes') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-users"></i>
+            <span>Clientes</span>
+          </a>
+        </div>
+
+        <?php if (isAdmin()): ?>
+        <div class="elprofe-nav-section">
+          <div class="elprofe-nav-section-title">Inventario & Compras</div>
+          <a href="/ELPROFE/inventario" class="elprofe-nav-link <?php echo $isActive('/inventario') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-boxes-stacked"></i>
+            <span>Inventario</span>
+            <span class="elprofe-nav-shortcut ms-auto">F3</span>
+          </a>
+          <a href="/ELPROFE/categorias" class="elprofe-nav-link <?php echo $isActive('/categorias') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-tags"></i>
+            <span>Categorías</span>
+          </a>
+          <a href="/ELPROFE/compras" class="elprofe-nav-link <?php echo $isActive('/compras') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-truck-fast"></i>
+            <span>Compras</span>
+            <span class="elprofe-nav-shortcut ms-auto">F4</span>
+          </a>
+          <a href="/ELPROFE/proveedores" class="elprofe-nav-link <?php echo $isActive('/proveedores') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-truck-field"></i>
+            <span>Proveedores</span>
+          </a>
+        </div>
+
+        <div class="elprofe-nav-section">
+          <div class="elprofe-nav-section-title">Administración</div>
+          <a href="/ELPROFE/reportes" class="elprofe-nav-link <?php echo $isActive('/reportes') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Reportes / Libros</span>
+          </a>
+          <a href="/ELPROFE/caja" class="elprofe-nav-link <?php echo $isActive('/caja') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-cash-register"></i>
+            <span>Auditoría Caja</span>
+          </a>
+          <a href="/ELPROFE/bitacora" class="elprofe-nav-link <?php echo $isActive('/bitacora') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Bitácora</span>
+          </a>
+          <a href="/ELPROFE/usuarios" class="elprofe-nav-link <?php echo $isActive('/usuarios') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-users-gear"></i>
+            <span>Usuarios</span>
+          </a>
+          <a href="/ELPROFE/configuracion" class="elprofe-nav-link <?php echo $isActive('/configuracion') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-gears"></i>
+            <span>Configuración</span>
+          </a>
+        </div>
+        <?php endif; ?>
+      </div>
+    </nav>
+
+    <!-- Offcanvas (mobile) -->
+    <div class="elprofe-offcanvas d-lg-none">
+      <div class="offcanvas offcanvas-start elprofe-offcanvas-menu" tabindex="-1" id="elprofeSidebarOffcanvas" aria-labelledby="elprofeSidebarOffcanvasLabel">
+        <div class="offcanvas-header">
+          <div class="d-flex align-items-center">
+            <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="34" height="34" class="me-2 rounded-circle bg-white p-1">
+            <div>
+              <div id="elprofeSidebarOffcanvasLabel" class="fw-bold">ELPROFE</div>
+              <div class="small text-muted">Menú</div>
+            </div>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+          <nav class="elprofe-sidebar elprofe-sidebar-mobile" aria-label="Menú principal móvil">
+            <div class="elprofe-sidebar-inner">
+              <div class="elprofe-nav-section">
+                <div class="elprofe-nav-section-title">Caja & Ventas</div>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/dashboard" class="elprofe-nav-link <?php echo $isActive('/dashboard') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-house"></i>
+                  <span>Inicio</span>
+                  <span class="elprofe-nav-shortcut ms-auto">F1</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/mi_caja" class="elprofe-nav-link <?php echo $isActive('/mi_caja') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-cash-register"></i>
+                  <span>Mi Caja</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/ventas" class="elprofe-nav-link <?php echo $isActive('/ventas') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-cart-shopping"></i>
+                  <span>Ventas</span>
+                  <span class="elprofe-nav-shortcut ms-auto">F2</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/proformas" class="elprofe-nav-link <?php echo $isActive('/proformas') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-file-invoice"></i>
+                  <span>Cobranza</span>
+                  <span class="elprofe-nav-pill ms-auto">Fiados</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/clientes" class="elprofe-nav-link <?php echo $isActive('/clientes') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-users"></i>
+                  <span>Clientes</span>
+                </a>
+              </div>
+
+              <?php if (isAdmin()): ?>
+              <div class="elprofe-nav-section">
+                <div class="elprofe-nav-section-title">Inventario & Compras</div>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/inventario" class="elprofe-nav-link <?php echo $isActive('/inventario') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-boxes-stacked"></i>
+                  <span>Inventario</span>
+                  <span class="elprofe-nav-shortcut ms-auto">F3</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/categorias" class="elprofe-nav-link <?php echo $isActive('/categorias') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-tags"></i>
+                  <span>Categorías</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/compras" class="elprofe-nav-link <?php echo $isActive('/compras') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-truck-fast"></i>
+                  <span>Compras</span>
+                  <span class="elprofe-nav-shortcut ms-auto">F4</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/proveedores" class="elprofe-nav-link <?php echo $isActive('/proveedores') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-truck-field"></i>
+                  <span>Proveedores</span>
+                </a>
+              </div>
+
+              <div class="elprofe-nav-section">
+                <div class="elprofe-nav-section-title">Administración</div>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/reportes" class="elprofe-nav-link <?php echo $isActive('/reportes') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-chart-line"></i>
+                  <span>Reportes / Libros</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/caja" class="elprofe-nav-link <?php echo $isActive('/caja') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-cash-register"></i>
+                  <span>Auditoría Caja</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/bitacora" class="elprofe-nav-link <?php echo $isActive('/bitacora') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-shield-halved"></i>
+                  <span>Bitácora</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/usuarios" class="elprofe-nav-link <?php echo $isActive('/usuarios') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-users-gear"></i>
+                  <span>Usuarios</span>
+                </a>
+                <a data-bs-dismiss="offcanvas" href="/ELPROFE/configuracion" class="elprofe-nav-link <?php echo $isActive('/configuracion') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-gears"></i>
+                  <span>Configuración</span>
+                </a>
+              </div>
+              <?php endif; ?>
+            </div>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <main class="container-fluid flex-grow-1 px-3 py-3">
 <?php else: ?>
 <main class="container d-flex flex-column justify-content-center align-items-center flex-grow-1">
 <?php endif; ?>

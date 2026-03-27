@@ -1,5 +1,29 @@
 <?php
 // includes/functions.php
+// Nota: usamos un nombre y ruta de cookie de sesión únicos para evitar
+// que este sistema "comparta" PHPSESSID con otras apps web del mismo dominio.
+session_name('ELPROFESESSID');
+
+$secure = !empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off';
+$cookieParams = session_get_cookie_params();
+$domain = $cookieParams['domain'] ?? '';
+
+$sessionCookieParams = [
+    'lifetime' => $cookieParams['lifetime'] ?? 0,
+    'path' => '/ELPROFE',
+    'secure' => $secure,
+    'httponly' => true,
+    'samesite' => 'Lax',
+];
+
+if (!empty($domain)) {
+    $sessionCookieParams['domain'] = $domain;
+}
+
+session_set_cookie_params($sessionCookieParams);
+// Usar cookies únicamente (reduce superficie de sesión por URL).
+ini_set('session.use_only_cookies', '1');
+
 session_start();
 
 function checkLogin() {
@@ -19,6 +43,26 @@ function restrictAdmin() {
     if (!isAdmin()) {
         http_response_code(403);
         die("Acceso Denegado: Esta zona es exclusiva para administradores.");
+    }
+}
+
+// ==========================================
+// MULTICAJA: SESIONES DE CAJA
+// ==========================================
+function getCajaAbiertaId($pdo): ?int {
+    if (!isset($_SESSION['user_id'])) return null;
+    $stmt = $pdo->prepare("SELECT id FROM sesiones_caja WHERE usuario_id = ? AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1");
+    $stmt->execute([$_SESSION['user_id']]);
+    $id = $stmt->fetchColumn();
+    return $id ? (int)$id : null;
+}
+
+function requireCajaAbierta($pdo, string $redirectTo = '/ELPROFE/mi_caja'): void {
+    $id = getCajaAbiertaId($pdo);
+    if (!$id) {
+        setFlash('error', "Debes abrir tu caja antes de operar. Ve a 'Mi Caja'.");
+        header("Location: {$redirectTo}");
+        exit;
     }
 }
 
@@ -115,5 +159,71 @@ function displayFlash() {
             });
         </script>";
     }
+}
+
+// ==========================================
+// ENLACES COMPARTIBLES (Tickets / Proformas)
+// - Evita enumeración por ID sin autenticación.
+// - Usa un token firmado (HMAC) válido por tiempo.
+// ==========================================
+function elprofeShareLinkSecret(): string {
+    $secret = getenv('ELPROFE_SHARE_LINK_SECRET');
+    if (!$secret && isset($_ENV['ELPROFE_SHARE_LINK_SECRET'])) {
+        $secret = (string)$_ENV['ELPROFE_SHARE_LINK_SECRET'];
+    }
+
+    // Fallback por seguridad baja: si no configuras una secret real,
+    // al menos evitamos que cualquiera use un ID cualquiera sin token.
+    return $secret ?: 'ELPROFE_SHARE_LINK_SECRET_CHANGE_ME';
+}
+
+function base64UrlEncode(string $data): string {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function base64UrlDecode(string $data): string|false {
+    $remainder = strlen($data) % 4;
+    if ($remainder) {
+        $data .= str_repeat('=', 4 - $remainder);
+    }
+    $data = strtr($data, '-_', '+/');
+    return base64_decode($data, true);
+}
+
+function generateShareLinkToken(int $proformaId, int $ttlSeconds = 604800): string {
+    // ttlSeconds por defecto: 7 días
+    $ts = time();
+    $payload = $proformaId . ':' . $ts . ':' . $ttlSeconds;
+    $sig = hash_hmac('sha256', $payload, elprofeShareLinkSecret());
+    return base64UrlEncode($payload) . '.' . $sig;
+}
+
+function validateShareLinkToken(int $proformaId, ?string $token): bool {
+    if (!$token) return false;
+    $parts = explode('.', $token, 2);
+    if (count($parts) !== 2) return false;
+
+    [$payloadEnc, $sigProvided] = $parts;
+    $payload = base64UrlDecode($payloadEnc);
+    if ($payload === false) return false;
+
+    $expected = hash_hmac('sha256', $payload, elprofeShareLinkSecret());
+    if (!hash_equals($expected, $sigProvided)) return false;
+
+    $payloadParts = explode(':', $payload);
+    if (count($payloadParts) !== 3) return false;
+    [$id, $ts, $ttl] = $payloadParts;
+
+    $id = intval($id);
+    $ts = intval($ts);
+    $ttl = intval($ttl);
+    if ($id !== $proformaId) return false;
+    if ($ttl <= 0) return false;
+
+    $now = time();
+    if ($now < $ts) return false;
+    if (($now - $ts) > $ttl) return false;
+
+    return true;
 }
 

@@ -1,7 +1,8 @@
 /* assets/css/style.css */
 :root {
-    --primary-color: #4f46e5; /* Indigo 600 */
-    --hover-color: #4338ca;
+    --primary-color: #002157; /* Azul Marino del Logo */
+    --accent-color: #d3101e;  /* Rojo del Logo */
+    --hover-color: #003380;
 }
 
 body {
@@ -11,7 +12,8 @@ body {
 
 /* Navbar Personalizada */
 .navbar.bg-primary {
-    background: linear-gradient(135deg, var(--primary-color) 0%, #3b82f6 100%) !important;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%) !important;
+    border-bottom: 2px solid var(--accent-color);
 }
 
 /* Cards Premium */
@@ -57,6 +59,17 @@ body {
     border-color: var(--hover-color);
 }
 
+.btn-accent {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+.btn-accent:hover {
+    background-color: #b70e1a;
+    border-color: #b70e1a;
+    color: white;
+}
+
 /* Fix para modo oscuro */
 [data-bs-theme="dark"] .card {
     background-color: #1e1e2d;
@@ -77,5 +90,196 @@ body {
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 [data-bs-theme="dark"] .pos-total {
-    color: #818cf8; /* Indigo 400 for dark mode */
+    color: #4da3ff; /* Un azul más claro para modo oscuro */
+}
+
+/* ===== Layout ELPROFE (Topbar + Sidebar / Offcanvas) ===== */
+.elprofe-app {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.elprofe-topbar {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%) !important;
+    border-bottom: 2px solid var(--accent-color);
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+.elprofe-topbar .elprofe-brand {
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+.elprofe-topbar .elprofe-brand img {
+    width: 44px !important;
+    height: 44px !important;
+}
+
+.elprofe-topbar .elprofe-brand span {
+    font-weight: 900;
+    font-size: 1.15rem;
+}
+
+.elprofe-topbar .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.7);
+}
+.elprofe-topbar .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.9);
+}
+
+.elprofe-body {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.elprofe-app {
+    background: radial-gradient(circle at 20% 0%, rgba(211, 16, 30, 0.16) 0%, rgba(0, 0, 0, 0) 35%),
+                radial-gradient(circle at 80% 10%, rgba(77, 163, 255, 0.14) 0%, rgba(0, 0, 0, 0) 40%),
+                linear-gradient(180deg, rgba(0, 0, 0, 0.10) 0%, rgba(0, 0, 0, 0.18) 100%);
+}
+
+.elprofe-body > main.container-fluid {
+    flex: 1;
+    min-height: 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.elprofe-sidebar {
+    width: 270px;
+    height: 100%;
+    background: linear-gradient(180deg, rgba(0, 33, 87, 0.98) 0%, rgba(211, 16, 30, 0.98) 100%);
+    padding: 0.95rem 0.7rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.10);
+    overflow-y: hidden;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.elprofe-sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.elprofe-nav-section {
+    margin-bottom: 1.25rem;
+}
+
+.elprofe-nav-section-title {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0 0.65rem;
+    margin: 0.25rem 0 0.6rem;
+}
+
+.elprofe-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.62rem 0.75rem;
+    margin: 0.15rem 0;
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+    position: relative;
+}
+
+.elprofe-nav-link:hover {
+    background: rgba(255, 255, 255, 0.09);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+.elprofe-nav-link i {
+    width: 22px;
+    text-align: center;
+}
+
+.elprofe-nav-link.active {
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+
+.elprofe-nav-shortcut {
+    margin-left: auto;
+    font-weight: 800;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.95);
+    white-space: nowrap;
+}
+
+.elprofe-nav-pill {
+    margin-left: auto;
+    font-weight: 800;
+    font-size: 0.75rem;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.95);
+    white-space: nowrap;
+}
+
+/* Offcanvas móvil: hereda estilos del sidebar */
+.elprofe-offcanvas-menu .offcanvas-header {
+    background: linear-gradient(135deg, rgba(0, 33, 87, 0.98) 0%, rgba(211, 16, 30, 0.98) 100%) !important;
+    color: #fff;
+}
+
+.elprofe-offcanvas-menu .offcanvas-body {
+    padding: 0;
+    overflow-y: auto;
+}
+
+.elprofe-sidebar-mobile {
+    padding: 1rem 0.75rem;
+    height: 100%;
+}
+
+[data-bs-theme="dark"] .elprofe-topbar .btn-outline-light {
+    color: #fff;
+}
+
+@media (max-width: 576px) {
+    .elprofe-topbar .elprofe-brand img {
+        width: 48px !important;
+        height: 48px !important;
+    }
+    .elprofe-topbar .elprofe-brand span {
+        font-size: 1.25rem;
+    }
+    .elprofe-sidebar {
+        width: 250px;
+    }
+}
+
+/* Login */
+.elprofe-login-logo {
+    width: 140px !important;
+    height: 140px !important;
+    object-fit: cover;
+}
+@media (max-width: 576px) {
+    .elprofe-login-logo {
+        width: 160px !important;
+        height: 160px !important;
+    }
 }

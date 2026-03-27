@@ -3,7 +3,9 @@ CREATE TABLE proveedores (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL,
     rif VARCHAR(20) UNIQUE,
+    contacto VARCHAR(100),
     telefono VARCHAR(20),
+    email VARCHAR(120),
     direccion TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -15,6 +17,7 @@ CREATE TABLE clientes (
     cedula_rif VARCHAR(20) UNIQUE NOT NULL,
     telefono VARCHAR(20),
     direccion TEXT,
+    ubicacion TEXT,
     limite_credito DECIMAL(12, 2) DEFAULT 0.00,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -27,13 +30,24 @@ CREATE TABLE metodos_pago (
 );
 
 -- 2. INVENTARIO Y PRESENTACIONES (PADRE-HIJO)
+CREATE TABLE categorias (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(80) NOT NULL UNIQUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE productos (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_interno VARCHAR(50) UNIQUE,
     nombre VARCHAR(150) NOT NULL,
+    marca VARCHAR(80),
     descripcion TEXT,
+    categoria_id INT DEFAULT NULL,
     foto VARCHAR(255) DEFAULT NULL,
     stock_actual DECIMAL(10, 2) DEFAULT 0.00,
+    stock_minimo DECIMAL(10, 2) DEFAULT 0.00,
     costo_promedio_usd DECIMAL(12, 2) DEFAULT 0.00,
+    exento_iva TINYINT(1) DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -46,6 +60,9 @@ CREATE TABLE presentaciones (
     codigo_barras VARCHAR(50) UNIQUE NOT NULL,
     FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
 );
+
+ALTER TABLE productos
+  ADD CONSTRAINT fk_producto_categoria FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL;
 
 -- 2.5 SESIONES DE CAJA
 CREATE TABLE sesiones_caja (
@@ -145,6 +162,30 @@ CREATE TABLE movimientos_caja (
     referencia_tabla VARCHAR(50),
     sesion_caja_id INT NULL,
     FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id) ON DELETE RESTRICT
+);
+
+-- 5.5 RESERVAS DE STOCK (TIEMPO REAL MULTICAJA)
+CREATE TABLE reservas_carrito (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    device_id VARCHAR(80) NOT NULL,
+    estado ENUM('ACTIVE', 'HOLD') DEFAULT 'ACTIVE',
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_reservas_user (usuario_id),
+    KEY idx_reservas_exp (expires_at),
+    KEY idx_reservas_device (device_id)
+);
+
+CREATE TABLE reservas_carrito_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reserva_id INT NOT NULL,
+    presentacion_id INT NOT NULL,
+    cantidad DECIMAL(10, 2) NOT NULL,
+    UNIQUE KEY uq_reserva_presentacion (reserva_id, presentacion_id),
+    FOREIGN KEY (reserva_id) REFERENCES reservas_carrito(id) ON DELETE CASCADE,
+    FOREIGN KEY (presentacion_id) REFERENCES presentaciones(id) ON DELETE RESTRICT
 );
 
 -- 6. CONFIGURACION Y USUARIOS

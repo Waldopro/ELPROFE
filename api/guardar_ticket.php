@@ -4,6 +4,8 @@ require_once '../includes/db.php';
 require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
+checkLogin();
+verifyCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     responseJson(['success' => false, 'message' => 'Método no permitido']);
@@ -27,9 +29,11 @@ if ($decodedData === false) {
     responseJson(['success' => false, 'message' => 'Error al decodificar imagen']);
 }
 
-$dir = '../assets/tickets';
+$dir = __DIR__ . '/../assets/tickets';
 if (!is_dir($dir)) {
-    mkdir($dir, 0777, true);
+    if (!@mkdir($dir, 0777, true) && !is_dir($dir)) {
+        responseJson(['success' => false, 'message' => 'No se pudo crear el directorio de tickets'], 500);
+    }
 }
 
 $filename = "{$tipo}_{$id}.png";

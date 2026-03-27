@@ -11,15 +11,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     
     $nombre = trim($_POST['nombre']);
     $rif = trim($_POST['rif']);
+    $contacto = trim($_POST['contacto'] ?? '');
     $telefono = trim($_POST['telefono'] ?? '');
+    $email = trim($_POST['email'] ?? '');
     $direccion = trim($_POST['direccion'] ?? '');
     
     if (empty($nombre) || empty($rif)) {
         setFlash('error', 'El nombre y el RIF son obligatorios.');
     } else {
         try {
-            $stmt = $pdo->prepare("INSERT INTO proveedores (nombre, rif, telefono, direccion) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$nombre, $rif, $telefono, $direccion]);
+            $stmt = $pdo->prepare("INSERT INTO proveedores (nombre, rif, contacto, telefono, email, direccion) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$nombre, $rif, $contacto, $telefono, $email, $direccion]);
             setFlash('success', 'Proveedor registrado correctamente.');
         } catch (\PDOException $e) {
             if ($e->getCode() == 23000) {
@@ -51,7 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <tr>
                         <th class="ps-4">RIF</th>
                         <th>Razón Social</th>
+                        <th>Contacto</th>
                         <th>Teléfono</th>
+                        <th>Email</th>
                         <th>Dirección</th>
                     </tr>
                 </thead>
@@ -65,12 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             echo "<tr>
                                     <td class='ps-4'><span class='fw-bold'>".e($p['rif'])."</span></td>
                                     <td>".e($p['nombre'])."</td>
+                                    <td>".e($p['contacto'] ?: '-')."</td>
                                     <td>".e($p['telefono'] ?: '-')."</td>
+                                    <td>".e($p['email'] ?: '-')."</td>
                                     <td>".e($p['direccion'] ?: '-')."</td>
                                   </tr>";
                         }
                     } else {
-                        echo "<tr><td colspan='4' class='text-center text-muted py-5'><i class='fa-solid fa-box-open fa-3x mb-3 text-light'></i><h5 class='mb-0'>No hay proveedores registrados</h5></td></tr>";
+                        echo "<tr><td colspan='6' class='text-center text-muted py-5'><i class='fa-solid fa-box-open fa-3x mb-3 text-light'></i><h5 class='mb-0'>No hay proveedores registrados</h5></td></tr>";
                     }
                     ?>
                 </tbody>
@@ -100,8 +106,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 <input type="text" name="nombre" class="form-control" required>
             </div>
             <div class="mb-3">
+                <label class="form-label text-muted small">Contacto</label>
+                <input type="text" name="contacto" class="form-control" placeholder="Persona de contacto">
+            </div>
+            <div class="mb-3">
                 <label class="form-label text-muted small">Teléfono</label>
                 <input type="text" name="telefono" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Email</label>
+                <input type="email" name="email" class="form-control" placeholder="correo@dominio.com">
             </div>
             <div class="mb-3">
                 <label class="form-label text-muted small">Dirección</label>

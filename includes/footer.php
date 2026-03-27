@@ -1,4 +1,8 @@
 </main>
+<?php if (isset($_SESSION['user_id'])): ?>
+  </div> <!-- elprofe-body -->
+</div> <!-- elprofe-app -->
+<?php endif; ?>
 <footer class="mt-auto py-3 bg-body-tertiary border-top text-center text-muted">
     <div class="container">
         <small>&copy; <?php echo date('Y'); ?> ELPROFE. Todos los derechos reservados.</small>
@@ -20,7 +24,7 @@
 <!-- Custom JS -->
 <script src="/ELPROFE/assets/js/main.js"></script>
 
-<!-- PWA Service Worker -->
+<!-- PWA Service Worker (Desactivado temporalmente por diagnóstico)
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -30,5 +34,6 @@
         });
     }
 </script>
+-->
 </body>
 </html>

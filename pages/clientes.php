@@ -13,13 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $cedula_rif = trim($_POST['cedula_rif']);
     $telefono = trim($_POST['telefono'] ?? '');
     $direccion = trim($_POST['direccion'] ?? '');
+    $ubicacion = trim($_POST['ubicacion'] ?? '');
     
     if (empty($nombre) || empty($cedula_rif)) {
         setFlash('error', 'El nombre y la cédula resuelven obligatorios.');
     } else {
         try {
-            $stmt = $pdo->prepare("INSERT INTO clientes (nombre, apellido, cedula_rif, telefono, direccion) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$nombre, $apellido, $cedula_rif, $telefono, $direccion]);
+            $stmt = $pdo->prepare("INSERT INTO clientes (nombre, apellido, cedula_rif, telefono, direccion, ubicacion) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$nombre, $apellido, $cedula_rif, $telefono, $direccion, $ubicacion]);
             setFlash('success', 'Cliente registrado correctamente.');
         } catch (\PDOException $e) {
             if ($e->getCode() == 23000) {
@@ -53,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <th class="ps-4">Cédula / RIF</th>
                         <th>Nombre y Apellido</th>
                         <th>Teléfono</th>
+                        <th>Ubicación</th>
                         <th>Fecha Registro</th>
                     </tr>
                 </thead>
@@ -67,11 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                     <td class='ps-4'><span class='fw-bold'>".e($c['cedula_rif'])."</span></td>
                                     <td>".e($c['nombre'] . ' ' . $c['apellido'])."</td>
                                     <td>".e($c['telefono'] ?: '-')."</td>
+                                    <td>".e($c['ubicacion'] ?: '-')."</td>
                                     <td>".e(date('d/m/Y', strtotime($c['created_at'])))."</td>
                                   </tr>";
                         }
                     } else {
-                        echo "<tr><td colspan='4' class='text-center text-muted py-5'><i class='fa-solid fa-folder-open fa-3x mb-3 text-light'></i><h5 class='mb-0'>No hay clientes registrados</h5></td></tr>";
+                        echo "<tr><td colspan='5' class='text-center text-muted py-5'><i class='fa-solid fa-folder-open fa-3x mb-3 text-light'></i><h5 class='mb-0'>No hay clientes registrados</h5></td></tr>";
                     }
                     ?>
                 </tbody>
@@ -107,6 +110,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <div class="mb-3">
                 <label class="form-label text-muted small">Teléfono</label>
                 <input type="text" name="telefono" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Ubicación</label>
+                <input type="text" name="ubicacion" class="form-control" placeholder="Ej: Sector / Ciudad / Referencia">
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small">Dirección</label>
+                <textarea name="direccion" class="form-control" rows="2"></textarea>
             </div>
           </div>
           <div class="modal-footer pb-3">

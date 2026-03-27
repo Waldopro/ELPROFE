@@ -1,7 +1,7 @@
 # 🛒 ELPROFE - Sistema de Punto de Venta (POS)
 
 ![Estado](https://img.shields.io/badge/Estado-Fase_1_Completada-success)
-![Versión](https://img.shields.io/badge/Versión-1.0.0-blue)
+![Versión](https://img.shields.io/badge/Versión-1.1.0-blue)
 ![PHP](https://img.shields.io/badge/PHP-8.4-purple)
 ![MySQL](https://img.shields.io/badge/MariaDB-11.8-orange)
 
@@ -19,10 +19,14 @@
 
 ### 💰 Contabilidad y Multimoneda
 - **Manejo Dual de Moneda:** API scraper en tiempo real conectada al Banco Central de Venezuela (BCV) o Tasa de Cambio Manual. Modificable globalmente en el Panel de Configuración.
+- **Auditoría Estricta Multicaja:** Control individualizado de sesiones de caja por usuario. Reportes avanzados por fecha, usuario y método de pago, además de generación nativa de los **Libros de Compras y Ventas** exigidos por el SENIAT con exportación a PDF y Excel (XLS).
+- **Control de Inventarios Integrado:** Modal único de alta de Producto Completo con creación de "Inventario Inicial" automatizado para máxima trazabilidad. Reservas temporales exclusivas (Holds) entre múltiples cajas operando al mismo tiempo.
 - **Cobranza a Crédito (Fiado):** Emisión de proformas (Notas de Entrega) que quedan en estado por cobrar (`PENDIENTE` o `PARCIAL`).
 - **Ponderación Dinámica de Deudas:** Si un cliente abona dinero a un fiado días después, el sistema automáticamente usa la Tasa del Día **actual** y calcula el equivalente exacto restándolo de su saldo global en las divisas que se anclaron de origen.
 - **Control de Abonos (Split-Payment):** Un cliente puede pagar una proforma en varias partes o usar diferentes métodos simultáneamente (Ej: Efectivo USD + Pago Móvil + Binance).
 - **Auditoría de Caja:** Historial transparente en cascada, clasificado por Cajero, Movimientos Operativos, Métodos de Pago y Balance de Turno (Sesiones de Caja).
+- **Historial en POS:** Desde el módulo `Ventas (Punto de Venta)` puedes abrir el historial de proformas recientes y re-emitir/consultar comprobantes.
+- **Gestión de Usuarios:** El módulo `Usuarios` permite **editar** usuarios (no solo crear/eliminar) manteniendo control RBAC.
 
 ### 📱 Compartición y Movilidad (Novedades)
 - **Progressive Web App (PWA):** Sistema instalable gráficamente en dispositivos Android/iOS y Escritorios (Chrome/Edge) con soporte offline en caché (Service Workers) y Manifest dedicado.
@@ -34,7 +38,9 @@
 ### 🛡️ Seguridad Operacional y Arquitectura
 - **Protección de Accesos Internos:** Sistema de Roles RBAC (`Administrador` vs `Cajero` visible).
 - **Seguridad Web:** Sistema blindado contra *Cross-Site Request Forgery (CSRF)* con tokens obligatorios en todas las llamadas `AJAX` y formularios. Salidas sanitizadas contra `XSS`. Cifrado de Password en One-Way Hashing (`Bcrypt`).
+- **Enlaces Compartidos (Tickets / Notas):** Los comprobantes compartidos por WhatsApp ahora usan un **token firmado (HMAC)** para evitar enumeración por `id` sin autorización. Configura `ELPROFE_SHARE_LINK_SECRET` en `.env` para producción.
 - **Diseño Mobile-First:** Desarrollado sobre Bootstrap 5, completamente amigable e intuitivo, con Modo Oscuro/Claro nativo y transacciones de carga limpias tipo Single-Page App (Manejo de estados con SweetAlert2).
+- **UI Responsiva Mejorada:** Layout con sidebar (desktop) + offcanvas (móvil), logo mejor visible y altura del menú consistente.
 - **Recepción de Hardware en Vivo:** Listener global asíncrono en JavaScript para atrapar cadenas de ingreso USB desde pistolas de códigos de barra, enrutándose sin perder el *focus*.
 
 ---

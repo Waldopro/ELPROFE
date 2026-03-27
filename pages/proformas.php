@@ -56,6 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmtSesion = $pdo->prepare("SELECT id FROM sesiones_caja WHERE usuario_id = ? AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1");
         $stmtSesion->execute([$_SESSION['user_id']]);
         $ses_id = $stmtSesion->fetchColumn() ?: null;
+        if (!$ses_id) {
+            throw new Exception("No hay caja ABIERTA. Abra su caja en 'Mi Caja' antes de registrar abonos.");
+        }
         
         $stmtCaja = $pdo->prepare("INSERT INTO movimientos_caja (sesion_caja_id, metodo_pago_id, tipo_movimiento, monto_bs, monto_usd, referencia_id, referencia_tabla) VALUES (?, ?, 'ENTRADA', ?, ?, ?, 'abonos')");
         $stmtCaja->execute([$ses_id, $metodo_id, $monto_bs_entregado, $monto_usd_entregado, $abono_id]);

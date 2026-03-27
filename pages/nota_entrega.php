@@ -5,8 +5,16 @@ require_once '../includes/functions.php';
 
 $id = intval($_GET['id'] ?? 0);
 $is_demo = isset($_GET['demo']);
+ $shareToken = isset($_GET['share']) ? (string)$_GET['share'] : '';
 
 if (!$is_demo && $id <= 0) die("Proforma inválida");
+
+// Acceso seguro (sin login) solo si el token firmado es válido.
+if (!$is_demo) {
+    if (!validateShareLinkToken($id, $shareToken)) {
+        checkLogin();
+    }
+}
 
 // Datos de la empresa
 $empresa_nombre = getConfig('empresa_nombre', $pdo) ?: 'ELPROFE POS';
@@ -73,212 +81,236 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $titulo; ?> #<?php echo str_pad($id, 6, "0", STR_PAD_LEFT); ?></title>
+    <meta name="csrf-token" content="<?php echo e(generateCsrfToken()); ?>">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #000; background: #fff; }
-        .page { max-width: 800px; margin: 0 auto; background: white; border: 1px solid #ddd; padding: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1, h2, h3, p { margin: 0; padding: 0; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        .header-logo { font-size: 32px; font-weight: bold; }
+        :root { --brand-blue: #002157; --brand-red: #d3101e; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #eaedf1; color: #333; line-height: 1.5; padding: 30px 15px; }
+        
+        /* Contenedor Hoja A4 */
+        .page { 
+            width: 210mm; /* Forzamos ancho A4 para captura fiel */
+            min-height: 297mm;
+            margin: 0 auto;
+            background: #fff;
+            padding: 15mm;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.15);
+            position: relative;
+            border-radius: 4px;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 3px solid var(--brand-blue); padding-bottom: 15px; }
+        .header-logo { width: 120px; }
         .header-info { text-align: right; }
-        .doc-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .doc-title h2 { color: #cc0000; font-size: 20px; }
+        .header-info h1 { font-size: 20px; color: var(--brand-blue); font-weight: 800; margin-bottom: 5px; }
+        .header-info p { font-size: 13px; color: #555; margin: 2px 0; }
+
+        .doc-meta { display: flex; justify-content: space-between; margin-bottom: 25px; background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 5px solid var(--brand-red); }
+        .doc-meta h2 { font-size: 18px; color: var(--brand-red); font-weight: 700; margin: 0; }
+        .doc-meta div { font-size: 14px; font-weight: 600; text-align: right; }
+
+        .client-box { margin-bottom: 25px; }
+        .client-box h3 { font-size: 14px; text-transform: uppercase; color: #777; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .grid-client { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; }
+        .grid-item { margin-bottom: 5px; }
+        .grid-item span { font-weight: 700; color: #555; min-width: 100px; display: inline-block; }
+
+        table.items-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        table.items-table th { background: var(--brand-blue); color: #fff; padding: 10px; font-size: 12px; text-transform: uppercase; text-align: left; }
+        table.items-table td { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
+        table.items-table tr:nth-child(even) { background: #fafafa; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        .footer-area { display: grid; grid-template-columns: 1fr 250px; gap: 40px; }
+        .obs-box { font-size: 12px; }
+        .obs-content { width: 100%; height: 100px; border: 1px dashed #ccc; padding: 10px; border-radius: 4px; background: #fffcf0; resize: none; overflow: hidden; }
         
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        table.border th, table.border td { border: 1px solid #000; padding: 6px 10px; font-size: 12px; }
-        table.border th { background-color: #f8f9fa; font-weight: bold; text-align: center; }
-        .td-label { background-color: #f8f9fa; font-weight: bold; width: 20%; }
+        .totals-box { font-size: 14px; }
+        .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .total-row.grand-total { border-bottom: none; font-size: 18px; color: var(--brand-blue); font-weight: 800; padding-top: 15px; }
         
-        .totals { float: right; width: 40%; }
-        .totals table th, .totals table td { border: 1px solid #000; padding: 6px; font-size: 13px; }
-        .totals table th { text-align: right; background-color: #f8f9fa; }
-        .totals table td { text-align: right; font-weight: bold; }
-        
-        .footer-signatures { display: flex; justify-content: space-between; margin-top: 60px; font-size: 12px; font-weight: bold; }
-        .signature-line { border-bottom: 1px solid #000; width: 300px; display: inline-block; margin-left: 10px; }
-        
-        .btn-print { display: block; width: 200px; margin: 0 auto 20px auto; padding: 10px; background: #0d6efd; color: white; text-align: center; font-weight: bold; text-decoration: none; border-radius: 5px; cursor: pointer; border: none; }
-        
-        [contenteditable=true]:empty:before { content: attr(placeholder); color: #999; display: block; }
-        td[contenteditable=true]:focus { background-color: #fffbdd; outline: 1px dashed #cca; }
+        .btn-panel { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; }
+        .btn-ui { padding: 12px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; border: none; font-size: 14px; transition: transform 0.2s; text-decoration: none; }
+        .btn-ui:hover { transform: scale(1.03); }
+        .btn-blue { background: #007bff; color: white; }
+        .btn-green { background: #28a745; color: white; }
+        .btn-cyan { background: #17a2b8; color: white; }
+
+        @media screen and (max-width: 220mm) {
+            body { padding: 0; background: #fff; }
+            .page { width: 100%; min-height: auto; box-shadow: none; border-radius: 0; padding: 10px; }
+            .header-logo { width: 80px; }
+            .grid-client { grid-template-columns: 1fr; }
+            .footer-area { grid-template-columns: 1fr; gap: 20px; }
+            .totals-box { width: 100%; }
+        }
 
         @media print {
             body { padding: 0; background: none; }
-            .page { border: none; box-shadow: none; padding: 0; max-width: 100%; }
+            .page { width: 100%; height: auto; margin: 0; padding: 0; box-shadow: none; }
             .no-print { display: none !important; }
+            .btn-panel { display: none !important; }
         }
     </style>
 </head>
 <body>
 
-<div class="no-print" style="margin: 0 auto 20px auto; max-width: 800px; text-align: center; display: flex; gap: 10px; justify-content: center;">
-    <button onclick="window.print()" class="btn-print" style="margin: 0; flex: 1; max-width: 250px;">🖨️ Imprimir PDF / A4</button>
-    <button id="btn-wa" onclick="shareAsImage(<?php echo $id; ?>, 'btn-wa', 'nota_entrega')" class="btn-print" style="margin: 0; flex: 1; max-width: 250px; background: #198754;">📱 Compartir Imagen WA</button>
-    <a href="ticket.php?id=<?php echo $id; ?>" class="btn-print" style="margin: 0; flex: 1; max-width: 250px; background: #0dcaf0; color: #000;">🧾 Ver Ticket (58mm)</a>
+<div class="btn-panel no-print">
+    <button onclick="window.print()" class="btn-ui btn-blue">🖨️ Imprimir A4</button>
+    <button id="btn-wa" onclick="shareAsImage(<?php echo $id; ?>, 'btn-wa', 'nota_entrega')" class="btn-ui btn-green">📱 WhatsApp Imagen</button>
+    <a href="ticket.php?id=<?php echo $id; ?><?php echo $shareToken ? '&share=' . rawurlencode($shareToken) : ''; ?>" class="btn-ui btn-cyan">🧾 Ver Ticket Recibo</a>
 </div>
-<div class="page">
+
+<div class="page" id="invoice-content">
     <div class="header">
-        <div class="header-logo">LOGO</div>
+        <img src="../assets/img/logo.png" alt="Logotipo" class="header-logo">
         <div class="header-info">
-            <h2 style="font-size: 22px;"><?php echo htmlspecialchars(strtoupper($empresa_nombre)); ?> CA RIF: <?php echo htmlspecialchars($empresa_rif); ?></h2>
-            <p style="font-size: 14px; margin-top: 5px;"><?php echo htmlspecialchars($empresa_dir); ?></p>
-            <p style="font-size: 14px;">Tel: <?php echo htmlspecialchars($empresa_tel); ?></p>
+            <h1><?php echo e(strtoupper($empresa_nombre)); ?></h1>
+            <p><strong>RIF:</strong> <?php echo e($empresa_rif); ?></p>
+            <p><?php echo e($empresa_dir); ?></p>
+            <p><strong>Tel:</strong> <?php echo e($empresa_tel); ?></p>
         </div>
     </div>
-    
-    <div class="doc-title">
+
+    <div class="doc-meta">
         <h2><?php echo $titulo; ?> Nro. <?php echo str_pad($id, 6, "0", STR_PAD_LEFT); ?></h2>
-        <div style="font-size: 14px; font-weight: bold;">
-            Fecha de Emisión: <?php echo date('d/m/Y', strtotime($proforma['fecha_emision'])); ?>
+        <div>
+            FECHA DE EMISIÓN:<br>
+            <?php echo date('d/m/Y', strtotime($proforma['fecha_emision'])); ?>
         </div>
     </div>
-    
-    <table class="border">
-        <tr>
-            <td class="td-label">Nombre o Razón social.</td>
-            <td colspan="3"><?php echo htmlspecialchars($proforma['cliente_nombre']); ?></td>
-            <td class="td-label" style="width: 15%;">C.I. / R.I.F.</td>
-            <td style="width: 25%;"><?php echo htmlspecialchars($proforma['cedula_rif']); ?></td>
-        </tr>
-        <tr>
-            <td class="td-label">Domicilio Fiscal</td>
-            <td colspan="5"><?php echo htmlspecialchars($proforma['cliente_dir']); ?></td>
-        </tr>
-        <tr>
-            <td class="td-label">Teléfono:</td>
-            <td colspan="3"><?php echo htmlspecialchars($proforma['cliente_tel']); ?></td>
-            <td class="td-label">Condiciones Pago</td>
-            <td><?php echo $proforma['tipo_documento'] === 'PROFORMA' && $proforma['estado'] === 'PENDIENTE' ? 'CRÉDITO' : 'CONTADO'; ?></td>
-        </tr>
-    </table>
-    
-    <table class="border">
+
+    <div class="client-box">
+        <h3>Información del Cliente</h3>
+        <div class="grid-client">
+            <div class="grid-item"><span>RAZÓN SOCIAL:</span> <?php echo e($proforma['cliente_nombre']); ?></div>
+            <div class="grid-item"><span>C.I. / R.I.F.:</span> <?php echo e($proforma['cedula_rif']); ?></div>
+            <div class="grid-item"><span>DIRECCIÓN:</span> <?php echo e($proforma['cliente_dir']); ?></div>
+            <div class="grid-item"><span>TELÉFONO:</span> <?php echo e($proforma['cliente_tel']); ?></div>
+        </div>
+    </div>
+
+    <table class="items-table">
         <thead>
             <tr>
-                <th width="15%">Código</th>
-                <th width="40%">Concepto o Descripción</th>
-                <th width="10%">Unidad</th>
-                <th width="10%">Cant.</th>
-                <th width="12%">P.U. ($)</th>
-                <th width="13%">Total ($)</th>
+                <th width="15%">CÓDIGO</th>
+                <th width="45%">DESCRIPCIÓN</th>
+                <th width="10%" class="text-center">CANT.</th>
+                <th width="15%" class="text-right">P.U. ($)</th>
+                <th width="15%" class="text-right">TOTAL ($)</th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($detalles as $d): ?>
             <tr>
-                <td style="text-align: center;"><?php echo htmlspecialchars($d['codigo_barras']); ?></td>
-                <td><?php echo htmlspecialchars($d['producto_nombre'] . " " . $d['nombre_presentacion']); ?></td>
-                <td style="text-align: center;">Und</td>
-                <td style="text-align: center;"><?php echo round($d['cantidad'], 2); ?></td>
-                <td style="text-align: right;"><?php echo number_format($d['precio_unitario_usd'], 2, ',', '.'); ?></td>
-                <td style="text-align: right;"><?php echo number_format($d['subtotal_usd'], 2, ',', '.'); ?></td>
+                <td class="text-center"><?php echo e($d['codigo_barras']); ?></td>
+                <td><?php echo e($d['producto_nombre'] . " (" . $d['nombre_presentacion'] . ")"); ?></td>
+                <td class="text-center"><?php echo round($d['cantidad'], 2); ?></td>
+                <td class="text-right"><?php echo number_format($d['precio_unitario_usd'], 2, ',', '.'); ?></td>
+                <td class="text-right"><?php echo number_format($d['subtotal_usd'], 2, ',', '.'); ?></td>
             </tr>
             <?php endforeach; ?>
-            <!-- Add empty rows if needed to pad the table visually, mimicking the original -->
-            <?php for($i = 0; $i < (10 - count($detalles)); $i++): ?>
-            <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+            <?php for($i = count($detalles); $i < 8; $i++): ?>
+            <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
             <?php endfor; ?>
         </tbody>
     </table>
-    
-    <div style="display: flex; justify-content: space-between;">
-        <div style="width: 55%;">
-            <table class="border">
-                <tr><td class="td-label">Observaciones:</td></tr>
-                <tr><td id="obs_box" contenteditable="true" placeholder="Haga clic aquí para escribir una observación o comentario antes de imprimir..." style="height: 60px; vertical-align: top; font-size: 13px;"></td></tr>
-            </table>
+
+    <div class="footer-area">
+        <div class="obs-box">
+            <strong>Observaciones:</strong><br>
+            <div id="obs_box" class="obs-content" contenteditable="true" placeholder="Haga clic para escribir notas antes de imprimir..."></div>
         </div>
-        <div class="totals">
-            <table>
-                <tr>
-                    <th width="60%">Total General $</th>
-                    <td><?php echo number_format($proforma['total_usd'], 2, ',', '.'); ?></td>
-                </tr>
-                <tr>
-                    <th>Exento de IVA $</th>
-                    <td>0,00</td>
-                </tr>
-                <tr>
-                    <th>Total a Pagar $</th>
-                    <td><?php echo number_format($proforma['total_usd'], 2, ',', '.'); ?></td>
-                </tr>
-            </table>
+        <div class="totals-box">
+            <div class="total-row">
+                <span>SUBTOTAL:</span>
+                <span>$ <?php echo number_format($proforma['total_usd'], 2, ',', '.'); ?></span>
+            </div>
+            <div class="total-row">
+                <span>IVA (0%):</span>
+                <span>$ 0,00</span>
+            </div>
+            <div class="total-row grand-total">
+                <span>TOTAL A PAGAR:</span>
+                <span>$ <?php echo number_format($proforma['total_usd'], 2, ',', '.'); ?></span>
+            </div>
+            <div style="font-size: 11px; text-align: right; margin-top: 10px; color: #777;">
+                Equivalente aprox: Bs. <?php echo number_format($proforma['total_usd'] * $tasa_dia, 2, ',', '.'); ?><br>
+                (Tasa: <?php echo number_format($tasa_dia, 2); ?>)
+            </div>
         </div>
     </div>
-    <div style="clear: both;"></div>
 </div>
 
+<!-- Scripts al final para no bloquear el renderizado inicial -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="/ELPROFE/assets/js/share_comprobante.js?v=<?php echo time(); ?>"></script>
+
 <script>
-    // Recuperar observaciones escritas previamente si se guardaron en caché
-    let obsBox = document.getElementById('obs_box');
-    let cacheKey = 'obs_<?php echo $id; ?>';
-    
+    const idDoc = <?php echo $id; ?>;
+    const obsBox = document.getElementById('obs_box');
+    const cacheKey = 'obs_' + idDoc;
+
     if (localStorage.getItem(cacheKey)) {
         obsBox.innerHTML = localStorage.getItem(cacheKey);
     }
     
-    obsBox.addEventListener('input', function() {
-        localStorage.setItem(cacheKey, this.innerHTML);
+    obsBox.addEventListener('input', () => {
+        localStorage.setItem(cacheKey, obsBox.innerHTML);
     });
 
-    if(new URLSearchParams(window.location.search).has('print')) {
-        setTimeout(() => { window.print(); }, 500);
-    }
-
     async function shareAsImage(id, btnId, tipo) {
-        let btn = document.getElementById(btnId);
-        let origHtml = btn.innerHTML;
-        btn.innerHTML = '⏳ Procesando...';
-        btn.disabled = true;
+        Swal.fire({
+            title: 'Capturando comprobante',
+            text: 'Preparando imagen de alta calidad...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
 
         try {
-            if(typeof html2canvas === 'undefined') {
-                await new Promise((resolve) => {
-                    let script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-                    script.onload = resolve;
-                    document.head.appendChild(script);
-                });
-            }
-
-            // Ocultar area de botones superior
-            let noPrint = document.querySelector('.no-print');
-            noPrint.style.display = 'none';
-
-            let canvas = await html2canvas(document.body, { backgroundColor: '#ffffff', scale: 2 });
-            noPrint.style.display = 'flex'; // restaurar
-
-            let base64 = canvas.toDataURL('image/png');
-
-            let formData = new FormData();
-            formData.append('id', id);
-            formData.append('tipo', tipo);
-            formData.append('image', base64);
+            const captureEl = document.getElementById('invoice-content');
             
-            let res = await fetch('/ELPROFE/api/guardar_ticket.php', { method: 'POST', body: formData });
-            let json = await res.json();
-            
-            if(!json.success) throw new Error(json.message);
-
-            canvas.toBlob(async (blob) => {
-                let file = new File([blob], `${tipo}_${id}.png`, { type: 'image/png' });
-                
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        title: `Documento #${id}`,
-                        text: 'Adjunto Documento Mercantil',
-                        files: [file]
-                    });
-                } else {
-                    let wa_url = "https://wa.me/?text=" + encodeURIComponent("Saludos! Adjunto comprobante virtual en este link:\n\n" + json.url);
-                    window.open(wa_url, "_blank");
-                }
+            // Garantizamos que el elemento sea visible y tenga dimensiones para la captura
+            const canvas = await html2canvas(captureEl, { 
+                backgroundColor: '#ffffff', 
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                windowWidth: 1200 // Simular ancho de escritorio para captura consistente
             });
 
+            canvas.toBlob(async (blob) => {
+                if (!blob) throw new Error('Fallo al generar archivo temporal.');
+                
+                // 1. Guardar copia en el servidor (Respaldo)
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('tipo', tipo);
+                formData.append('image', canvas.toDataURL('image/png'));
+                
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const res = await fetch('/ELPROFE/api/guardar_ticket.php', { 
+                    method: 'POST', 
+                    headers: { 'X-CSRF-Token': csrf },
+                    body: formData 
+                });
+                const json = await res.json();
+                
+                Swal.close();
+
+                // 2. Intentar flujo nativo de compartir
+                const file = new File([blob], `${tipo}_${id}.png`, { type: 'image/png' });
+                const shared = await elprofeTryShareImageFile(file, `Nota #${id}`, 'Comprobante ElProfe');
+                
+                if (!shared) {
+                    elprofeFallbackShareComprobante(canvas, id, tipo, json.url);
+                }
+            }, 'image/png');
+
         } catch(e) {
-            alert('Error al generar la imagen. ' + e.message);
-        } finally {
-            btn.innerHTML = origHtml;
-            btn.disabled = false;
+            Swal.fire('Error', 'Fallo técnico: ' + e.message, 'error');
         }
     }
 </script>

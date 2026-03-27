@@ -5,6 +5,24 @@ checkLogin();
 
 // Obtain some metrics
 $today = date('Y-m-d');
+$caja_id = getCajaAbiertaId($pdo);
+$caja_info = null;
+if ($caja_id) {
+    $s = $pdo->prepare("SELECT * FROM sesiones_caja WHERE id = ?");
+    $s->execute([$caja_id]);
+    $caja_info = $s->fetch(PDO::FETCH_ASSOC);
+
+    $s_bal = $pdo->prepare("
+        SELECT COALESCE(SUM(CASE WHEN mk.tipo_movimiento = 'ENTRADA' THEN mk.monto_usd ELSE -mk.monto_usd END), 0) as balance_usd,
+               COALESCE(SUM(CASE WHEN mk.tipo_movimiento = 'ENTRADA' THEN mk.monto_bs ELSE -mk.monto_bs END), 0) as balance_bs
+        FROM movimientos_caja mk WHERE sesion_caja_id = ?
+    ");
+    $s_bal->execute([$caja_id]);
+    $bal_s = $s_bal->fetch(PDO::FETCH_ASSOC);
+    $caja_info['bal_usd'] = $bal_s['balance_usd'];
+    $caja_info['bal_bs'] = $bal_s['balance_bs'];
+}
+
 $tasa = getConfig('tasa_usd_bs', $pdo);
 
 // Total Sales USD Today
@@ -28,6 +46,28 @@ require_once 'includes/header.php';
 
 <div class="row g-4 mb-4">
     <?php if (isAdmin()): ?>
+
+    <!-- Estado de Caja del Usuario -->
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm <?php echo $caja_id ? 'bg-info text-white' : 'bg-danger text-white'; ?>">
+            <div class="card-body d-flex flex-column justify-content-between p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="card-title fw-bold mb-0">Mi Caja</h5>
+                    <div class="bg-white <?php echo $caja_id ? 'text-info' : 'text-danger'; ?> rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="fa-solid <?php echo $caja_id ? 'fa-cash-register' : 'fa-lock'; ?> fa-lg"></i>
+                    </div>
+                </div>
+                <?php if ($caja_id): ?>
+                    <h3 class="fw-bolder mb-0">Abierta</h3>
+                    <p class="small text-white-50 mt-1 mb-0">Bal: $<?php echo formatMoney($caja_info['bal_usd']); ?> | Bs. <?php echo formatMoney($caja_info['bal_bs']); ?></p>
+                <?php else: ?>
+                    <h3 class="fw-bolder mb-0">Cerrada</h3>
+                    <p class="small text-white-50 mt-1 mb-0"><a href="/ELPROFE/mi_caja" class="text-white text-decoration-underline">Abrir ahora para operar</a></p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
     <div class="col-md-4">
         <div class="card h-100 border-0 shadow-sm text-bg-success">
             <div class="card-body d-flex flex-column justify-content-between p-4">
@@ -43,7 +83,7 @@ require_once 'includes/header.php';
         </div>
     </div>
     
-    <div class="col-md-4">
+    <div class="col-md-4 d-none d-lg-block">
         <div class="card h-100 border-0 shadow-sm text-bg-warning">
             <div class="card-body d-flex flex-column justify-content-between p-4">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -58,7 +98,29 @@ require_once 'includes/header.php';
         </div>
     </div>
     <?php else: ?>
-    <div class="col-md-8">
+
+    <!-- Estado de Caja del Usuario -->
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm <?php echo $caja_id ? 'bg-info text-white' : 'bg-danger text-white'; ?>">
+            <div class="card-body d-flex flex-column justify-content-between p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="card-title fw-bold mb-0">Mi Caja</h5>
+                    <div class="bg-white <?php echo $caja_id ? 'text-info' : 'text-danger'; ?> rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="fa-solid <?php echo $caja_id ? 'fa-cash-register' : 'fa-lock'; ?> fa-lg"></i>
+                    </div>
+                </div>
+                <?php if ($caja_id): ?>
+                    <h3 class="fw-bolder mb-0">Abierta</h3>
+                    <p class="small text-white-50 mt-1 mb-0">Bal: $<?php echo formatMoney($caja_info['bal_usd']); ?> | Bs. <?php echo formatMoney($caja_info['bal_bs']); ?></p>
+                <?php else: ?>
+                    <h3 class="fw-bolder mb-0">Cerrada</h3>
+                    <p class="small text-white-50 mt-1 mb-0"><a href="/ELPROFE/mi_caja" class="text-white text-decoration-underline">Abrir ahora para operar</a></p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
         <div class="card h-100 bg-gradient border-0 text-white" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
             <div class="card-body p-4 d-flex flex-column justify-content-center">
                 <h3 class="fw-bold mb-2">Turno Operativo de Caja</h3>
