@@ -105,9 +105,7 @@ require_once 'includes/header.php';
 
                         <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm fs-5">Ingresar al Sistema <i class="fa-solid fa-arrow-right"></i></button>
 
-                        <div class="text-center mt-3 text-body-secondary small">
-                            Acceso demo: <kbd>admin</kbd> / <kbd>123456</kbd>
-                        </div>
+                       
                     </form>
                 </div>
             </div>
