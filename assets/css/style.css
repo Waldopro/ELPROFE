@@ -653,6 +653,41 @@ th.te-sortable:hover {
     padding: 0.9rem 1rem;
 }
 
+.elprofe-hero .elprofe-panel-title,
+.elprofe-hero h2,
+.elprofe-hero h3,
+.elprofe-hero h4,
+.elprofe-hero h5 {
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+[data-bs-theme="light"] .elprofe-hero .elprofe-panel-title,
+[data-bs-theme="light"] .elprofe-hero h2,
+[data-bs-theme="light"] .elprofe-hero h3,
+[data-bs-theme="light"] .elprofe-hero h4,
+[data-bs-theme="light"] .elprofe-hero h5 {
+    color: #0f172a;
+}
+
+[data-bs-theme="dark"] .elprofe-hero .elprofe-panel-title,
+[data-bs-theme="dark"] .elprofe-hero h2,
+[data-bs-theme="dark"] .elprofe-hero h3,
+[data-bs-theme="dark"] .elprofe-hero h4,
+[data-bs-theme="dark"] .elprofe-hero h5 {
+    color: #e0e7ff;
+}
+
+[data-bs-theme="light"] .elprofe-hero .text-muted,
+[data-bs-theme="dark"] .elprofe-hero .text-muted {
+    color: rgba(15, 23, 42, 0.8);
+}
+
+[data-bs-theme="dark"] .elprofe-hero .text-muted {
+    color: rgba(226, 232, 240, 0.85);
+}
+
+
 /* Footer profesional y uniforme */
 .elprofe-footer {
     border-top: 1px solid var(--elprofe-border);

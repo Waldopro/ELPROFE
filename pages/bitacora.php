@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     <h6 class="fw-bold mb-1"><i class="fa-solid fa-circle-info text-primary"></i> Leyenda de Monitoreo Organizacional:</h6>
     <ul class="small mb-0 text-muted">
         <li><strong>Log de Accesos:</strong> Vigila los intentos de entrar a tu sistema. Si ves un <i class="fa-solid fa-triangle-exclamation text-danger"></i> significa que alguien probó contraseñas incorrectas para intentar vulnerar tu caja.</li>
-        <li><strong>Traza de Actividad:</strong> Registra movimientos exactos de dinero o inventario (Emitir proformas, abonar, anular ventas). El módulo <kbd class="bg-primary">SISTEMA</kbd> es interno, mientras que <kbd class="bg-success">POS</kbd> o <kbd class="bg-dark">INVENTARIO</kbd> son movimientos de tienda.</li>
+        <li><strong>Traza de Actividad:</strong> Registra movimientos exactos de dinero o inventario (Emitir proformas, abonar, anular ventas). El módulo <kbd class="bg-primary">SISTEMA</kbd> es interno, mientras que <kbd class="bg-success">POS</kbd> o <kbd class="badge-inventario">INVENTARIO</kbd> son movimientos de tienda.</li>
     </ul>
 </div>
 
