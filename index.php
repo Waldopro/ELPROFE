@@ -50,32 +50,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once 'includes/header.php';
 ?>
 
-<section class="elprofe-login-wrap w-100">
+<section class="elprofe-login-wrap w-100 position-relative">
+    <div class="position-absolute top-0 end-0 p-3 z-3">
+        <button class="btn btn-link text-body-secondary p-2" id="theme-toggle" title="Cambiar Tema" aria-label="Cambiar tema">
+            <i class="fa-solid fa-moon fs-4"></i>
+        </button>
+    </div>
+
     <div class="elprofe-login-bg-shape elprofe-login-bg-shape-a"></div>
     <div class="elprofe-login-bg-shape elprofe-login-bg-shape-b"></div>
 
-    <div class="row g-4 align-items-stretch w-100">
+    <div class="row g-0 justify-content-center w-100" style="max-width: 1100px;">
+        <!-- Panel Lateral (Solo Escritorio) -->
         <div class="col-lg-6 d-none d-lg-block">
-            <div class="elprofe-login-side h-100">
+            <div class="elprofe-login-side h-100 d-flex flex-column justify-content-center">
                 <div class="elprofe-login-side-inner">
-                    <h1 class="fw-bolder mb-3">ELPROFE POS</h1>
-                    <p class="mb-4 text-body-secondary">Control de inventario, caja y cobranza en una sola plataforma profesional.</p>
-                    <div class="d-grid gap-2">
-                        <div class="elprofe-login-bullet"><i class="fa-solid fa-check"></i> Flujo de ventas y crédito multimoneda</div>
-                        <div class="elprofe-login-bullet"><i class="fa-solid fa-check"></i> Bitácora y auditoría por usuario</div>
-                        <div class="elprofe-login-bullet"><i class="fa-solid fa-check"></i> Reportes de compras y ventas en tiempo real</div>
+                    <h1 class="fw-black mb-3 display-4">ELPROFE POS</h1>
+                    <p class="mb-5 opacity-75 fs-5">Control total de inventario y facturación en una plataforma profesional y segura.</p>
+                    <div class="d-grid gap-3">
+                        <div class="elprofe-login-bullet">
+                            <i class="fa-solid fa-circle-check"></i> 
+                            <span>Ventas y crédito multimoneda</span>
+                        </div>
+                        <div class="elprofe-login-bullet">
+                            <i class="fa-solid fa-circle-check"></i> 
+                            <span>Bitácora y auditoría por usuario</span>
+                        </div>
+                        <div class="elprofe-login-bullet">
+                            <i class="fa-solid fa-circle-check"></i> 
+                            <span>Reportes financieros en tiempo real</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-6 col-12 d-flex align-items-center justify-content-center">
-            <div class="card elprofe-login-card shadow-lg border-0 w-100">
-                <div class="card-body p-4 p-md-5">
+        <!-- Card de Login -->
+        <div class="col-lg-6 col-12">
+            <div class="card elprofe-login-card h-100 border-0 shadow-lg">
+                <div class="card-body p-4 p-md-5 d-flex flex-column justify-content-center">
                     <div class="text-center mb-4">
-                        <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="130" height="130" class="mb-3 rounded-circle p-2 shadow-sm elprofe-login-logo elprofe-logo-shell">
+                        <div class="elprofe-login-logo-wrap mb-4">
+                            <img src="/ELPROFE/assets/img/logo.png" alt="Logo" class="rounded-circle shadow-sm elprofe-logo-shell p-2">
+                        </div>
                         <h2 class="fw-bold mb-1">Bienvenido</h2>
-                        <p class="text-body-secondary small mb-0">Inicia sesión para continuar</p>
+                        <p class="text-body-secondary small">Ingresa tus credenciales para continuar</p>
                     </div>
 
                     <?php if($error): ?>

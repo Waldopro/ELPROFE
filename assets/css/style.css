@@ -550,89 +550,139 @@ th.te-sortable:hover {
     }
 }
 
-/* Login */
-.elprofe-login-logo {
-    width: 140px !important;
-    height: 140px !important;
-    object-fit: cover;
-    filter: none !important;
-    mix-blend-mode: normal !important;
-}
-
+/* ===== Login System v2.0 (Perfect Integration) ===== */
 .elprofe-login-wrap {
-    position: relative;
-    max-width: 1080px;
+    width: 100%;
+    max-width: 1140px;
     margin: 0 auto;
-    padding: 2rem 1rem;
-    overflow: hidden;
+    position: relative;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
 }
 
 .elprofe-login-bg-shape {
     position: absolute;
-    border-radius: 999px;
-    filter: blur(8px);
-    opacity: 0.35;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.15;
+    z-index: 0;
     pointer-events: none;
 }
 
 .elprofe-login-bg-shape-a {
-    width: 280px;
-    height: 280px;
-    top: -80px;
-    left: -60px;
-    background: radial-gradient(circle, rgba(0, 33, 87, 0.85) 0%, rgba(0, 33, 87, 0) 70%);
+    top: -100px;
+    left: -100px;
+    background: var(--primary-color);
 }
 
 .elprofe-login-bg-shape-b {
-    width: 340px;
-    height: 340px;
-    bottom: -120px;
-    right: -80px;
-    background: radial-gradient(circle, rgba(211, 16, 30, 0.55) 0%, rgba(211, 16, 30, 0) 72%);
+    bottom: -100px;
+    right: -100px;
+    background: var(--accent-color);
 }
 
 .elprofe-login-side {
-    border: 1px solid var(--elprofe-border);
-    border-radius: 20px;
-    background: linear-gradient(160deg, rgba(2, 14, 48, 0.92) 0%, rgba(4, 30, 81, 0.85) 100%);
-    color: #e5e7eb;
-    box-shadow: 0 22px 45px rgba(0, 0, 0, 0.28);
+    background: linear-gradient(135deg, #001e4d 0%, #000c24 100%);
+    color: #ffffff;
+    padding: 4rem 3rem;
+    border-radius: 24px 0 0 24px;
+    position: relative;
+    overflow: hidden;
+    z-index: 2;
 }
 
-.elprofe-login-side-inner {
-    padding: 2.25rem;
+.elprofe-login-side::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url('/ELPROFE/assets/img/logo.png') no-repeat center center;
+    background-size: 150%;
+    opacity: 0.03;
+    filter: grayscale(1);
 }
 
 .elprofe-login-bullet {
-    padding: 0.7rem 0.85rem;
-    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem 1.25rem;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.elprofe-login-bullet:hover {
+    transform: translateX(5px);
     background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    font-weight: 600;
 }
 
 .elprofe-login-bullet i {
-    color: #7dd3fc;
-    margin-right: 0.45rem;
+    color: #60a5fa;
+    font-size: 1.2rem;
 }
 
 .elprofe-login-card {
-    max-width: 460px;
-    border: 1px solid var(--elprofe-border);
-    border-radius: 20px;
-    background: color-mix(in srgb, var(--bs-card-bg) 92%, #ffffff 8%);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(8px);
+    background-color: var(--bs-card-bg);
+    border-radius: 0 24px 24px 0 !important;
+    padding: 1rem;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-[data-bs-theme="dark"] .elprofe-login-card .input-group-text,
-[data-bs-theme="dark"] .elprofe-login-card .form-control {
-    background-color: #262b40;
-    border-color: #3b445f;
+.elprofe-login-logo-wrap img {
+    width: 100px;
+    height: 100px;
+    transition: transform 0.5s ease;
 }
 
-[data-bs-theme="light"] .elprofe-login-side {
-    background: linear-gradient(160deg, #12356f 0%, #0d2c60 100%);
+.elprofe-login-logo-wrap:hover img {
+    transform: scale(1.05) rotate(3deg);
+}
+
+@media (max-width: 991.98px) {
+    .elprofe-login-side {
+        display: none !important;
+    }
+    .elprofe-login-card {
+        border-radius: 24px !important;
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
+    }
+}
+
+/* Light Mode Overrides for Login */
+[data-bs-theme="light"] .elprofe-login-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 33, 87, 0.08);
+}
+
+[data-bs-theme="light"] .elprofe-login-card h2 {
+    color: var(--primary-color);
+}
+
+[data-bs-theme="light"] .elprofe-login-wrap {
+    background: radial-gradient(circle at 10% 10%, rgba(0, 33, 87, 0.03) 0%, transparent 40%);
+}
+
+[data-bs-theme="light"] .elprofe-login-card .input-group-text {
+    background-color: #f1f5f9;
+    color: var(--primary-color);
+}
+
+[data-bs-theme="light"] .elprofe-login-card .form-control:focus {
+    box-shadow: 0 0 0 0.25rem rgba(0, 33, 87, 0.1);
+}
+
+[data-bs-theme="light"] .elprofe-login-card:hover {
+    box-shadow: 0 25px 60px rgba(0, 33, 87, 0.14);
 }
 
 /* UI profesional para POS y paneles */

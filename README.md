@@ -1,7 +1,7 @@
 # 🛒 ELPROFE - Sistema de Punto de Venta (POS)
 
 ![Estado](https://img.shields.io/badge/Estado-Fase_1_Completada-success)
-![Versión](https://img.shields.io/badge/Versión-1.1.0-blue)
+![Versión](https://img.shields.io/badge/Versión-1.0-blue)
 ![PHP](https://img.shields.io/badge/PHP-8.4-purple)
 ![MySQL](https://img.shields.io/badge/MariaDB-11.8-orange)
 
