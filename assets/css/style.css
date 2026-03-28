@@ -671,6 +671,29 @@ th.te-sortable:hover {
     color: #1f3f70 !important;
 }
 
+[data-bs-theme="light"] .elprofe-hero .badge.text-bg-primary-subtle {
+    background-color: #dbeafe !important;
+    color: #0c4aa6 !important;
+    border-color: #bfdbfe !important;
+}
+
+[data-bs-theme="light"] .elprofe-hero .badge.text-bg-success-subtle {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border-color: #bbf7d0 !important;
+}
+
+[data-bs-theme="light"] .elprofe-hero .badge.text-bg-dark {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    border-color: #334155 !important;
+}
+
+[data-bs-theme="light"] .elprofe-footer-version {
+    color: #475569 !important;
+    opacity: 1 !important;
+}
+
 .elprofe-hero {
     border-radius: 14px;
     padding: 0.9rem 1rem;

@@ -301,7 +301,62 @@ const POS = (() => {
         }, 'json');
     }
 
+    function startScanner() {
+        if (!window.Html5Qrcode) return;
+        
+        // Alerta si no estamos en entorno seguro (requerido para cámaras)
+        if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+            Swal.fire('Error de Seguridad', 'La cámara requiere un sitio seguro (HTTPS) para funcionar.', 'error');
+            $('#modalCameraScanner').modal('hide');
+            return;
+        }
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        html5QrCode = new Html5Qrcode("camera-reader");
+        
+        const success = (decodedText) => {
+            html5QrCode.stop().then(() => {
+                $('#modalCameraScanner').modal('hide');
+                $(document).trigger('barcodeScanned', [decodedText]);
+                if ("vibrate" in navigator) navigator.vibrate(200);
+            }).catch(e => console.error(e));
+        };
+
+        const failed = (err) => {
+            // console.warn(err);
+        };
+
+        // Intentar con cámara trasera primero, luego con cualquier cámara disponible
+        html5QrCode.start({ facingMode: "environment" }, config, success, failed).catch(err => {
+            console.error("Back camera error:", err);
+            html5QrCode.start({ facingMode: "user" }, config, success, failed).catch(err2 => {
+                console.error("All cameras error:", err2);
+                Swal.fire('Error de Cámara', 'No se pudo activar ninguna cámara. Verifique los permisos.', 'error');
+                $('#modalCameraScanner').modal('hide');
+            });
+        });
+    }
+
+    function stopScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().catch(err => console.error(err));
+        }
+    }
+
     function initEvents() {
+        // Escáner Cámara (Móvil)
+        $('#btn-camera-scan').on('click', function() {
+            $('#modalCameraScanner').modal('show');
+        });
+
+        $('#modalCameraScanner').on('shown.bs.modal', function() {
+            startScanner();
+        });
+
+        $('#modalCameraScanner').on('hidden.bs.modal', function() {
+            stopScanner();
+        });
+
         // Escáner Global o Búsqueda Manual
         elements.buscador.on('keyup change', function(e) {
             const q = $(this).val();
@@ -868,6 +923,7 @@ const POS = (() => {
                 const urlWa = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}&wa=1`;
                 const urlPdf = `/ELPROFE/pages/nota_entrega.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}`;
                 const esFiado = (tipo === 'FIADO');
+                const pagoCompleto = !!res.pago_completo;
                 const labelDocA4 = (String(tipoDoc || 'PROFORMA') === 'FACTURA')
                     ? 'Ver Factura PDF (A4)'
                     : 'Ver Nota de Entrega (A4)';
@@ -888,14 +944,15 @@ const POS = (() => {
                     accionesHtml = `
                         <div class="d-grid gap-2">
                             <a href="${urlTicket}&print=1" target="_blank" class="btn btn-primary fw-bold py-2 shadow-sm">
-                                <i class="fa-solid fa-receipt me-2"></i> Imprimir Ticket Térmico
+                                <i class="fa-solid fa-receipt me-2"></i> Imprimir Factura (Ticket)
                             </a>
                             <a href="${urlWa}" target="_blank" class="btn btn-success fw-bold py-2 shadow-sm">
                                 <i class="fa-brands fa-whatsapp me-2"></i> Compartir WhatsApp
                             </a>
+                            ${!pagoCompleto ? `
                             <a href="${urlPdf}" target="_blank" class="btn btn-warning fw-bold py-2 shadow-sm">
                                 <i class="fa-solid fa-file-pdf me-2"></i> ${labelDocA4}
-                            </a>
+                            </a>` : ''}
                         </div>
                     `;
                 }

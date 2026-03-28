@@ -254,11 +254,11 @@ $titulo = $proforma['tipo_documento'] === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTRE
     const cacheKey = 'obs_' + idDoc;
 
     if (localStorage.getItem(cacheKey)) {
-        obsBox.innerHTML = localStorage.getItem(cacheKey);
+        obsBox.textContent = localStorage.getItem(cacheKey);
     }
     
     obsBox.addEventListener('input', () => {
-        localStorage.setItem(cacheKey, obsBox.innerHTML);
+        localStorage.setItem(cacheKey, obsBox.textContent || '');
     });
 
     async function shareAsImage(id, btnId, tipo) {

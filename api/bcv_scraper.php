@@ -39,9 +39,16 @@ function actualizarTasaManual($pdo) {
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    // CRÍTICO para el BCV: Si su certificado vence, esto evita que el código se caiga
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); 
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    // Mantener validación TLS activa para evitar MITM.
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'ELPROFE-POS/1.0 (+https://localhost/ELPROFE)');
+
+    // Permite configurar un bundle CA si el servidor lo requiere.
+    $caBundle = getenv('CURL_CA_BUNDLE') ?: getenv('SSL_CERT_FILE');
+    if ($caBundle && is_file($caBundle)) {
+        curl_setopt($ch, CURLOPT_CAINFO, $caBundle);
+    }
     curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Cancelar a los 10 segundos si su página está caída
     
     $html = curl_exec($ch);
@@ -66,12 +73,17 @@ function actualizarTasaManual($pdo) {
             $stmtConfig3 = $pdo->prepare("UPDATE configuracion SET valor = 'BCV' WHERE clave = 'tasa_tipo'");
             $stmtConfig3->execute();
 
+            $stmtFechaIns = $pdo->prepare("INSERT IGNORE INTO configuracion (clave, valor, descripcion) VALUES ('tasa_fecha', ?, 'Fecha de última actualización de tasa')");
+            $stmtFechaIns->execute([$hoy]);
+            $stmtFechaUp = $pdo->prepare("UPDATE configuracion SET valor = ? WHERE clave = 'tasa_fecha'");
+            $stmtFechaUp->execute([$hoy]);
+
             return $usd;
         }
     }
     return false;
 }
 
-// Ejecutar silenciosamente
-actualizarTasaManual($pdo);
+// Se comenta la ejecución automática para evitar bucles o lentitud innecesaria al incluir el archivo
+// actualizarTasaManual($pdo);
 ?>

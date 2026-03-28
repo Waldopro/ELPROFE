@@ -104,5 +104,32 @@ if ($action === 'delete') {
     responseJson(['success' => true]);
 }
 
-responseJson(['success' => false, 'message' => 'Acción no válida'], 400);
+if ($action === 'check_ids') {
+    $deviceId = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($_POST['device_id'] ?? $_GET['device_id'] ?? ''));
+    $idsRaw = $_POST['ids'] ?? $_GET['ids'] ?? '[]';
+    $ids = json_decode((string)$idsRaw, true);
+    if (!is_array($ids)) $ids = [];
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn($v) => $v > 0)));
+    if ($deviceId === '' || count($ids) === 0) {
+        responseJson(['success' => true, 'valid_ids' => []]);
+    }
 
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = "
+        SELECT id
+        FROM reservas_carrito
+        WHERE id IN ($placeholders)
+          AND usuario_id = ?
+          AND device_id = ?
+          AND estado = 'HOLD'
+          AND expires_at > NOW()
+    ";
+    $params = array_merge($ids, [(int)$_SESSION['user_id'], $deviceId]);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $valid = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+
+    responseJson(['success' => true, 'valid_ids' => $valid]);
+}
+
+responseJson(['success' => false, 'message' => 'Acción no válida'], 400);

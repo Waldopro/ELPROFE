@@ -44,8 +44,8 @@ require_once '../includes/header.php';
         <small class="text-muted">Flujo rápido para ventas de contado, crédito y tickets en espera.</small>
     </div>
     <div class="d-flex align-items-center gap-2">
-        <span class="badge text-bg-primary-subtle border border-primary-subtle px-2 py-2">F2 Buscar</span>
-        <span class="badge text-bg-success-subtle border border-success-subtle px-2 py-2">F9 Cobrar</span>
+        <span class="badge text-bg-primary-subtle border border-primary-subtle px-2 py-2 shortcut-hint">F2 Buscar</span>
+        <span class="badge text-bg-success-subtle border border-success-subtle px-2 py-2 shortcut-hint">F9 Cobrar</span>
         <button type="button" class="btn btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#modalHistorialProformas">
             <i class="fa-solid fa-clock-rotate-left"></i> Historial (Proformas)
         </button>
@@ -62,6 +62,9 @@ require_once '../includes/header.php';
                 <div class="input-group input-group-lg">
                     <span class="input-group-text bg-light border-0"><i class="fa-solid fa-barcode text-muted"></i></span>
                     <input type="text" id="buscador-producto" class="form-control bg-light border-0" placeholder="Escanear código o buscar por nombre (F2)" autofocus autocomplete="off">
+                    <button type="button" class="btn btn-outline-info d-md-none" id="btn-camera-scan" title="Usar Cámara como Escáner">
+                        <i class="fa-solid fa-camera"></i>
+                    </button>
                     <button type="button" class="btn btn-outline-primary" id="btn-catalogo-productos">
                         <i class="fa-solid fa-table-list me-1"></i> Productos
                     </button>
@@ -132,7 +135,7 @@ require_once '../includes/header.php';
                 <h5 class="fw-bold mb-3">Acciones</h5>
                 <div class="d-grid gap-2">
                     <button class="btn btn-success btn-lg py-3 shadow-sm fw-bold w-100 mt-2 fs-4" id="btn-cobrar-pre" data-bs-toggle="modal" data-bs-target="#modalPago">
-                        <i class="fa-solid fa-money-bill-wave me-2"></i> Procesar Pago (F9)
+                        <i class="fa-solid fa-money-bill-wave me-2"></i> Procesar Pago <span class="shortcut-hint">(F9)</span>
                     </button>
                     
                     <div class="row g-2 mt-1">
@@ -395,6 +398,7 @@ require_once '../includes/header.php';
   </div>
 </div>
 
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="/ELPROFE/assets/js/pos.js"></script>
 
 <!-- Modal: Historial de Proformas -->
@@ -467,5 +471,64 @@ require_once '../includes/header.php';
     </div>
   </div>
 </div>
+
+<!-- Modal Scanner Cámara -->
+<div class="modal fade" id="modalCameraScanner" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg overflow-hidden">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="fa-solid fa-camera me-2"></i> Escanear Código de Barras</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0 position-relative bg-dark" style="min-height: 300px; max-height: 70vh;">
+        <div id="camera-reader" style="width: 100%;"></div>
+        <div class="scanner-line"></div>
+      </div>
+      <div class="modal-footer bg-light border-top-0 py-3">
+        <div class="text-center w-100">
+            <small class="text-muted d-block mb-3 px-3">Apunte al código de barras de forma clara. Asegúrese de que el código esté dentro del área visible.</small>
+            <button type="button" class="btn btn-secondary w-100 py-2 fw-bold" data-bs-dismiss="modal">Cancelar Escaneo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.scanner-line {
+    position: absolute;
+    top: 50%;
+    left: 5%;
+    width: 90%;
+    height: 3px;
+    background: rgba(255, 0, 0, 0.4);
+    box-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
+    animation: scanner_anim 2.5s infinite alternate ease-in-out;
+    pointer-events: none;
+    z-index: 10;
+}
+@keyframes scanner_anim {
+    from { top: 15%; }
+    to { top: 85%; }
+}
+#camera-reader video {
+    object-fit: cover !important;
+    border-radius: 0;
+}
+#camera-reader img {
+    display: none !important;
+}
+#camera-reader__dashboard {
+    background: #f8f9fa;
+    padding: 10px;
+}
+#camera-reader__dashboard_section_csr button {
+    background-color: #0d6efd !important;
+    color: white !important;
+    border: none !important;
+    padding: 6px 14px !important;
+    border-radius: 4px !important;
+}
+</style>
 
 <?php require_once '../includes/footer.php'; ?>

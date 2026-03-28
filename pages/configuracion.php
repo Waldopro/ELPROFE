@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $stmtUpdate = $pdo->prepare("UPDATE configuracion SET valor = 'MANUAL' WHERE clave = 'tasa_tipo'");
             $stmtUpdate->execute();
+            marcarTasaComoActualizadaHoy($pdo);
             
             setFlash('success', 'Tasa manual fijada correctamente a ' . $tasa);
         } else {
@@ -38,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($last_tasa) {
            $stmtConfig = $pdo->prepare("UPDATE configuracion SET valor = ? WHERE clave = 'tasa_usd_bs'");
            $stmtConfig->execute([$last_tasa]);
+           marcarTasaComoActualizadaHoy($pdo);
         }
         setFlash('success', 'Modalidad de tasa cambiada a BCV oficialmente.');
     } elseif (isset($_POST['action']) && $_POST['action'] === 'guardar_empresa') {
@@ -62,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $tasa_actual = getConfig('tasa_usd_bs', $pdo);
 $tasa_tipo = getConfig('tasa_tipo', $pdo) ?: 'MANUAL';
+$tasa_fecha = getConfig('tasa_fecha', $pdo) ?: 'No definida';
 
 $emp_nombre = getConfig('empresa_nombre', $pdo) ?: 'ELPROFE POS';
 $emp_dir = getConfig('empresa_direccion', $pdo) ?: '';
@@ -89,7 +92,7 @@ require_once '../includes/header.php';
                     <i class="fa-solid <?php echo $tasa_tipo === 'BCV' ? 'fa-globe' : 'fa-hand'; ?> fa-2x me-3"></i>
                     <div>
                         <h4 class="mb-0 fw-bold"><?php echo number_format($tasa_actual, 4); ?> Bs/$</h4>
-                        <small>Gestión actual: <strong><?php echo $tasa_tipo; ?></strong></small>
+                        <small>Gestión actual: <strong><?php echo $tasa_tipo; ?></strong> | Fecha validada: <strong><?php echo e($tasa_fecha); ?></strong></small>
                     </div>
                 </div>
 
@@ -259,7 +262,8 @@ $(document).ready(function() {
         btn.html('<i class="fa-solid fa-spinner fa-spin"></i> Conectando al Servidor BCV...').prop('disabled', true);
         
         $.post('/ELPROFE/api/bcv.php', {
-            target: 'sync'
+            target: 'sync',
+            csrf_token: $('meta[name="csrf-token"]').attr('content')
         }, function(res) {
             btn.html(htmlOriginal).prop('disabled', false);
             if(res.success) {

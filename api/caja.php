@@ -5,7 +5,10 @@ require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
 checkLogin();
-verifyCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
+$httpMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+if ($httpMethod !== 'GET') {
+    verifyCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
+}
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
@@ -62,4 +65,3 @@ if ($action === 'estado_sesion') {
 }
 
 responseJson(['success' => false, 'message' => 'Acción no válida'], 400);
-

@@ -21,7 +21,9 @@ $(document).ready(function() {
         htmlEl.setAttribute('data-bs-theme', theme);
         localStorage.setItem('theme', theme);
         if (themeBtn.length) {
-            themeBtn.attr('title', theme === 'dark' ? 'Cambiar a modo claro (Alt+T)' : 'Cambiar a modo oscuro (Alt+T)');
+            const isMobile = window.innerWidth < 992;
+            const hint = isMobile ? '' : ' (Alt+T)';
+            themeBtn.attr('title', theme === 'dark' ? 'Cambiar a modo claro' + hint : 'Cambiar a modo oscuro' + hint);
             themeBtn.attr('aria-label', theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
         }
         if(theme === 'dark') {
@@ -79,24 +81,41 @@ $(document).ready(function() {
             }
         }
         
-        if (!isInputFocus && window.isLoggedIn) {
-            switch(e.key) {
-                case 'F1':
-                    e.preventDefault();
-                    window.location.href = '/ELPROFE/dashboard';
-                    break;
-                case 'F2':
-                    e.preventDefault();
-                    window.location.href = '/ELPROFE/ventas';
-                    break;
-                case 'F3':
-                    e.preventDefault();
-                    window.location.href = '/ELPROFE/inventario';
-                    break;
-                case 'F4':
-                    e.preventDefault();
-                    window.location.href = '/ELPROFE/compras';
-                    break;
+        if (window.isLoggedIn) {
+            const k = String(e.key || '').toUpperCase();
+            const isAdmin = String(window.userRole || '') === 'ADMIN';
+            if (k === 'F1') { e.preventDefault(); window.location.href = '/ELPROFE/dashboard'; return; }
+            if (k === 'F2') { e.preventDefault(); window.location.href = '/ELPROFE/ventas'; return; }
+            if (k === 'F6') { e.preventDefault(); window.location.href = '/ELPROFE/clientes'; return; }
+            if (k === 'F7') { e.preventDefault(); window.location.href = '/ELPROFE/proformas'; return; }
+            if (k === 'F10') { e.preventDefault(); window.location.href = '/ELPROFE/mi_caja'; return; }
+            if (k === 'F8') {
+                e.preventDefault();
+                if (notifyBtn.length) notifyBtn.trigger('click');
+                return;
+            }
+            if (k === 'F3') {
+                e.preventDefault();
+                if (isAdmin) window.location.href = '/ELPROFE/inventario';
+                else Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Inventario solo para administradores', showConfirmButton: false, timer: 1800 });
+                return;
+            }
+            if (k === 'F4') {
+                e.preventDefault();
+                if (isAdmin) window.location.href = '/ELPROFE/compras';
+                else Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Compras solo para administradores', showConfirmButton: false, timer: 1800 });
+                return;
+            }
+            if (e.ctrlKey && k === 'K') {
+                e.preventDefault();
+                const target = document.querySelector('#buscador-producto, #catalogo-buscar, #clientes-buscar, input[type=\"search\"], .dataTables_filter input');
+                if (target) target.focus();
+                return;
+            }
+            if (e.altKey && k === 'N') {
+                e.preventDefault();
+                if (notifyBtn.length) notifyBtn.trigger('click');
+                return;
             }
         }
     });
@@ -138,63 +157,146 @@ $(document).ready(function() {
         });
     };
 
-    // Alertas globales en tiempo real (inventario/fiados)
-    const stockAlertBtn = $('#stock-alert-btn');
-    const stockAlertCount = $('#stock-alert-count');
-    let lastAlertSignature = '';
+    // Centro de notificaciones profesional (inventario/cobranza)
+    const notifyBtn = $('#notifications-btn');
+    const notifyCount = $('#notifications-count');
+    const notifyList = $('#notifications-list');
+    const notifyTime = $('#notifications-time');
+    const notifyRefreshBtn = $('#notifications-refresh');
+    const notifyMarkReadBtn = $('#notifications-mark-read');
+    const notifyMenu = $('#notifications-menu');
+    let lastFeedSignature = '';
+    let readIds = [];
+    try {
+        readIds = JSON.parse(localStorage.getItem('elprofe_notify_read_ids') || '[]');
+        if (!Array.isArray(readIds)) readIds = [];
+    } catch (e) {
+        readIds = [];
+    }
 
-    async function refreshGlobalAlerts(showToastOnChange = false) {
-        if (!window.isLoggedIn || stockAlertBtn.length === 0) return;
+    function persistReadIds() {
+        const trimmed = readIds.slice(-120);
+        localStorage.setItem('elprofe_notify_read_ids', JSON.stringify(trimmed));
+    }
+
+    function renderNotifyItem(item) {
+        const icon = item.tipo === 'inventario'
+            ? 'fa-box-open'
+            : (item.tipo === 'seguridad' ? 'fa-shield-halved' : 'fa-file-invoice-dollar');
+        const href = item.tipo === 'inventario'
+            ? '/ELPROFE/inventario'
+            : (item.tipo === 'seguridad' ? '/ELPROFE/bitacora' : '/ELPROFE/proformas');
+        const isNew = !readIds.includes(item.id);
+        const when = item.fecha || '';
+        return `
+            <a href="${href}" class="elprofe-notify-item ${isNew ? 'is-new' : ''}" data-notify-id="${item.id}">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="fa-solid ${icon} mt-1 text-primary"></i>
+                        <div>
+                            <div class="fw-semibold">${item.titulo} ${isNew ? '<span class="elprofe-notify-dot" title="Nueva"></span>' : ''}</div>
+                            <div class="small text-muted">${item.mensaje}</div>
+                            <div class="small text-muted mt-1">${when}</div>
+                        </div>
+                    </div>
+                    <span class="elprofe-notify-tag ${item.nivel}">${item.nivel}</span>
+                </div>
+            </a>
+        `;
+    }
+
+    async function refreshNotifications(showToastOnChange = false) {
+        if (!window.isLoggedIn || notifyBtn.length === 0) return;
         try {
-            const res = await fetch('/ELPROFE/api/monitor.php?action=resumen');
+            const res = await fetch('/ELPROFE/api/monitor.php?action=feed');
             const data = await res.json();
             if (!data || !data.success) return;
 
-            const sinStock = Number(data.stock?.sin_stock || 0);
-            const bajo = Number(data.stock?.stock_bajo || 0);
-            const total = sinStock + bajo;
-            const fiados = Number(data.fiados_pendientes || 0);
+            const items = Array.isArray(data.items) ? data.items : [];
+            const total = Number(data.count || 0);
+            const sig = items.map((it) => it.id).join('|');
+            const unseen = items.filter((it) => !readIds.includes(it.id)).length;
 
-            if (total > 0) {
-                stockAlertCount.text(total).removeClass('d-none');
-                stockAlertBtn.removeClass('btn-outline-warning').addClass('btn-warning text-dark');
+            notifyTime.text((data.server_time || '').slice(11, 16) || '--:--');
+            if (unseen > 0) notifyCount.text(unseen > 99 ? '99+' : String(unseen)).removeClass('d-none');
+            else notifyCount.text('0').addClass('d-none');
+
+            if (items.length === 0) {
+                notifyList.html('<div class="px-3 py-3 text-muted small">Sin notificaciones pendientes.</div>');
             } else {
-                stockAlertCount.text('0').addClass('d-none');
-                stockAlertBtn.removeClass('btn-warning text-dark').addClass('btn-outline-warning');
+                notifyList.html(items.map(renderNotifyItem).join(''));
             }
 
-            const sig = `${sinStock}-${bajo}-${fiados}`;
-            if (showToastOnChange && sig !== lastAlertSignature && lastAlertSignature !== '') {
+            if (showToastOnChange && lastFeedSignature && sig !== lastFeedSignature && total > 0) {
+                const top = items[0];
                 Swal.fire({
                     toast: true,
                     position: 'top-end',
-                    icon: total > 0 ? 'warning' : 'success',
-                    title: total > 0
-                        ? `Inventario: ${sinStock} sin stock, ${bajo} con stock bajo`
-                        : 'Inventario sin alertas',
+                    icon: top.nivel === 'critico' ? 'error' : (top.nivel === 'alerta' ? 'warning' : 'info'),
+                    title: top.titulo,
+                    text: top.mensaje,
                     showConfirmButton: false,
-                    timer: 2400
+                    timer: 2600
                 });
             }
-            lastAlertSignature = sig;
-
-            stockAlertBtn.off('click').on('click', function() {
-                Swal.fire({
-                    title: 'Alertas en Tiempo Real',
-                    html: `
-                        <div class="text-start">
-                            <p class="mb-2"><strong>Sin stock:</strong> ${sinStock}</p>
-                            <p class="mb-2"><strong>Stock bajo (&lt;5):</strong> ${bajo}</p>
-                            <p class="mb-0"><strong>Fiados pendientes:</strong> ${fiados}</p>
-                        </div>
-                    `,
-                    icon: total > 0 ? 'warning' : 'info',
-                    confirmButtonText: 'Entendido'
-                });
-            });
+            lastFeedSignature = sig;
         } catch (e) {}
     }
 
-    refreshGlobalAlerts(false);
-    setInterval(() => refreshGlobalAlerts(true), 30000);
+    notifyMenu.on('click', '.elprofe-notify-item', function() {
+        const id = $(this).data('notify-id');
+        if (id && !readIds.includes(id)) {
+            readIds.push(id);
+            persistReadIds();
+            refreshNotifications(false);
+        }
+    });
+
+    notifyRefreshBtn.on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        refreshNotifications(false);
+    });
+
+    notifyMarkReadBtn.on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const ids = notifyList.find('.elprofe-notify-item').map(function() {
+            return $(this).data('notify-id');
+        }).get().filter(Boolean);
+        ids.forEach((id) => {
+            if (!readIds.includes(id)) readIds.push(id);
+        });
+        persistReadIds();
+        refreshNotifications(false);
+    });
+
+    notifyBtn.on('click', function() {
+        setTimeout(() => refreshNotifications(false), 120);
+    });
+
+    refreshNotifications(false);
+    setInterval(() => refreshNotifications(true), 30000);
+
+    // Strip keyboard shortcuts from titles and placeholders on mobile
+    if (window.innerWidth < 992) {
+        $('[title*="(Alt+"], [title*="(Ctrl+"], [title*="(F"]').each(function() {
+            let title = $(this).attr('title');
+            if (title) {
+                title = title.replace(/\s?\(Alt\+[A-Z0-9]\)/gi, '');
+                title = title.replace(/\s?\(Ctrl\+[A-Z0-9]\)/gi, '');
+                title = title.replace(/\s?\(F[0-9]+\)/gi, '');
+                $(this).attr('title', title.trim());
+            }
+        });
+        
+        $('input[placeholder*="(F"], input[placeholder*="(Ctrl+"]').each(function() {
+            let ph = $(this).attr('placeholder');
+            if (ph) {
+                ph = ph.replace(/\s?\(F[0-9]+\)/gi, '');
+                ph = ph.replace(/\s?\(Ctrl\+[A-Z0-9]\)/gi, '');
+                $(this).attr('placeholder', ph.trim());
+            }
+        });
+    }
 });

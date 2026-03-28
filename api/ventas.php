@@ -126,9 +126,67 @@ if ($action === 'buscar_cliente') {
     responseJson(['success' => boolval($cliente), 'cliente' => $cliente]);
 }
 
+// GET: Buscar clientes para modal (selección rápida)
+if ($action === 'buscar_clientes') {
+    $q = trim((string)($_GET['q'] ?? ''));
+    $limit = max(10, min(120, intval($_GET['limit'] ?? 30)));
+    $like = '%' . $q . '%';
+
+    $sql = "
+        SELECT id, cedula_rif, nombre, apellido, telefono
+        FROM clientes
+        WHERE (? = '' OR cedula_rif LIKE ? OR nombre LIKE ? OR apellido LIKE ?)
+        ORDER BY nombre ASC, apellido ASC
+        LIMIT {$limit}
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$q, $like, $like, $like]);
+    responseJson(['success' => true, 'rows' => $stmt->fetchAll()]);
+}
+
+// POST: Crear cliente rápido desde POS
+if ($action === 'crear_cliente_rapido') {
+    $cedula = trim((string)($_POST['cedula_rif'] ?? ''));
+    $nombre = trim((string)($_POST['nombre'] ?? ''));
+    $apellido = trim((string)($_POST['apellido'] ?? ''));
+    $telefono = trim((string)($_POST['telefono'] ?? ''));
+
+    if ($cedula === '' || $nombre === '') {
+        responseJson(['success' => false, 'message' => 'Cédula/RIF y nombre son obligatorios.'], 400);
+    }
+    if (strlen($cedula) > 20 || strlen($nombre) > 100 || strlen($apellido) > 100 || strlen($telefono) > 20) {
+        responseJson(['success' => false, 'message' => 'Datos inválidos o demasiado largos.'], 400);
+    }
+
+    $stmtExist = $pdo->prepare("SELECT id, cedula_rif, nombre, apellido, telefono FROM clientes WHERE cedula_rif = ? LIMIT 1");
+    $stmtExist->execute([$cedula]);
+    $exist = $stmtExist->fetch();
+    if ($exist) {
+        responseJson(['success' => true, 'cliente' => $exist, 'message' => 'Cliente ya existía, se seleccionó automáticamente.']);
+    }
+
+    $stmt = $pdo->prepare("INSERT INTO clientes (cedula_rif, nombre, apellido, telefono) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$cedula, $nombre, $apellido, $telefono]);
+    $id = (int)$pdo->lastInsertId();
+    registrarAccion($pdo, 'CLIENTES', 'CREAR_RAPIDO', "Cliente creado desde POS: {$cedula}");
+
+    responseJson([
+        'success' => true,
+        'cliente' => [
+            'id' => $id,
+            'cedula_rif' => $cedula,
+            'nombre' => $nombre,
+            'apellido' => $apellido,
+            'telefono' => $telefono
+        ],
+        'message' => 'Cliente creado correctamente.'
+    ]);
+}
+
 // GET: Catálogo de productos para modal
 if ($action === 'catalogo_productos') {
     $q = trim($_GET['q'] ?? '');
+    $resId = intval($_GET['reservation_id'] ?? 0);
     $limit = max(20, min(200, intval($_GET['limit'] ?? 80)));
     $like = '%' . $q . '%';
 
@@ -141,18 +199,31 @@ if ($action === 'catalogo_productos') {
             pr.codigo_barras,
             pr.precio_venta_usd,
             pr.factor_conversion,
-            p.stock_actual
+            p.stock_actual,
+            GREATEST(
+              p.stock_actual - (
+                SELECT COALESCE(SUM(ri.cantidad * prx.factor_conversion), 0)
+                FROM reservas_carrito_items ri
+                JOIN reservas_carrito r ON ri.reserva_id = r.id
+                JOIN presentaciones prx ON ri.presentacion_id = prx.id
+                WHERE prx.producto_id = p.id
+                  AND r.expires_at > NOW()
+                  AND r.estado IN ('ACTIVE','HOLD')
+                  AND ( ? = 0 OR r.id <> ? )
+              ),
+              0
+            ) AS stock_disponible_unidades
         FROM presentaciones pr
         JOIN productos p ON p.id = pr.producto_id
         WHERE (? = '' OR p.nombre LIKE ? OR p.codigo_interno LIKE ? OR pr.codigo_barras LIKE ?)
         ORDER BY p.nombre ASC
         LIMIT ?
     ");
-    $stmt->execute([$q, $like, $like, $like, $limit]);
+    $stmt->execute([$resId, $resId, $q, $like, $like, $like, $limit]);
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) {
         $fc = max(1.0, floatval($r['factor_conversion'] ?? 1));
-        $stockUnd = floatval($r['stock_actual'] ?? 0);
+        $stockUnd = floatval($r['stock_disponible_unidades'] ?? 0);
         $r['stock_disponible_presentaciones'] = max(0, (int)floor($stockUnd / $fc));
         $r['nombre_completo'] = $r['producto_nombre'] . ' - ' . $r['nombre_presentacion'];
     }
@@ -207,7 +278,7 @@ if ($action === 'procesar_proforma') {
         // 1. Calcular Totales reales desde la DB para evitar hackeo del cart JS
         $totalUSD = 0;
         foreach ($productos as &$p) {
-            $stmt = $pdo->prepare("SELECT pr.precio_venta_usd, pr.factor_conversion, p.stock_actual, p.nombre 
+            $stmt = $pdo->prepare("SELECT pr.precio_venta_usd, pr.factor_conversion, p.stock_actual, p.nombre, p.id AS producto_id
                                    FROM presentaciones pr JOIN productos p ON pr.producto_id = p.id 
                                    WHERE pr.id = ? FOR UPDATE");
             $stmt->execute([$p['presentacion_id']]);
@@ -216,7 +287,29 @@ if ($action === 'procesar_proforma') {
             if(!$dbProd) throw new Exception("Presentación no encontrada.");
             
             $unidadesDescontar = $p['cantidad'] * $dbProd['factor_conversion'];
-            if($dbProd['stock_actual'] < $unidadesDescontar) throw new Exception("Stock insuficiente (Unds) para: ".$dbProd['nombre']);
+            $stockDisponible = floatval($dbProd['stock_actual']);
+
+            // Blindaje anti-colisión: descontar reservas activas/HOLD de otros carritos.
+            try {
+                $stmtRes = $pdo->prepare("
+                    SELECT COALESCE(SUM(ri.cantidad * prx.factor_conversion), 0)
+                    FROM reservas_carrito_items ri
+                    JOIN reservas_carrito r ON ri.reserva_id = r.id
+                    JOIN presentaciones prx ON ri.presentacion_id = prx.id
+                    WHERE prx.producto_id = ?
+                      AND r.expires_at > NOW()
+                      AND r.estado IN ('ACTIVE','HOLD')
+                      AND ( ? = 0 OR r.id <> ? )
+                ");
+                $stmtRes->execute([(int)$dbProd['producto_id'], $reservationId, $reservationId]);
+                $reservadoOtrasSesiones = floatval($stmtRes->fetchColumn() ?: 0);
+                $stockDisponible = max(0, floatval($dbProd['stock_actual']) - $reservadoOtrasSesiones);
+            } catch (Throwable $e) {
+                // Si el esquema de reservas no está disponible, seguimos con stock actual.
+                $stockDisponible = floatval($dbProd['stock_actual']);
+            }
+
+            if($stockDisponible < $unidadesDescontar) throw new Exception("Stock insuficiente (Unds) para: ".$dbProd['nombre']);
             
             $p['precio_unitario_usd'] = $dbProd['precio_venta_usd'];
             $p['subtotal_usd'] = round($p['cantidad'] * $dbProd['precio_venta_usd'], 2);
@@ -278,6 +371,9 @@ if ($action === 'procesar_proforma') {
         $tipoDocSolicitado = ($_POST['tipo_doc'] ?? 'PROFORMA') === 'FACTURA' ? 'FACTURA' : 'PROFORMA';
         if ($tipo === 'FIADO' && $tipoDocSolicitado === 'FACTURA') {
             throw new Exception("No se puede emitir FACTURA en ventas a crédito (FIADO).");
+        }
+        if ($tipoDocSolicitado === 'FACTURA' && $saldoPendiente > 0) {
+            throw new Exception("La FACTURA solo puede emitirse con pago completo.");
         }
         $tipoDoc = $tipoDocSolicitado;
         
@@ -350,7 +446,8 @@ if ($action === 'procesar_proforma') {
             'success' => true,
             'mensaje' => 'Proforma procesada con éxito.',
             'proforma_id' => $proforma_id,
-            'share_token' => $shareToken
+            'share_token' => $shareToken,
+            'pago_completo' => ($saldoPendiente <= 0)
         ]);
         
     } catch(Exception $e) {

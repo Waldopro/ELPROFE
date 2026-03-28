@@ -36,6 +36,12 @@ RewriteRule ^clientes/?$ pages/clientes.php [QSA,L]
 RewriteRule ^configuracion/?$ pages/configuracion.php [QSA,L]
 RewriteRule ^usuarios/?$ pages/usuarios.php [QSA,L]
 RewriteRule ^bitacora/?$ pages/bitacora.php [QSA,L]
+RewriteRule ^reportes/?$ pages/reportes.php [QSA,L]
+RewriteRule ^acerca/?$ pages/acerca.php [QSA,L]
+RewriteRule ^manual/?$ pages/manual.php [QSA,L]
+RewriteRule ^perfil/?$ pages/perfil.php [QSA,L]
+RewriteRule ^export_reportes/?$ pages/export_reportes.php [QSA,L]
+RewriteRule ^export_caja/?$ pages/export_caja.php [QSA,L]
 
 # Capturar cualquier otra ruta basura, ignorando archivos reales
 RewriteCond %{REQUEST_FILENAME} !-f

@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     
     $proveedor_id = intval($_POST['proveedor_id'] ?? 0);
     $factura = trim($_POST['factura'] ?? '');
+    $fecha_factura = $_POST['fecha_factura'] ?? date('Y-m-d');
     $productos_json = $_POST['compra_data'] ?? '[]';
     $productos = json_decode($productos_json, true);
     
@@ -24,23 +25,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $tasa = floatval(getConfig('tasa_usd_bs', $pdo));
         $total_usd = 0;
+        $exento_bs = 0; $base_bs = 0; $iva_bs = 0;
+        $numero_control = trim($_POST['numero_control'] ?? '');
         
-        // Calcular total USD de la compra
+        // Calcular total USD y desgloses Bs
         foreach ($productos as $p) {
-            $total_usd += floatval($p['costo_total_usd']);
+            $costo_total_usd = floatval($p['costo_total_usd']);
+            $total_usd += $costo_total_usd;
+            $sub_bs = $costo_total_usd * $tasa;
+            
+            // Check if product is exempt
+            $stEx = $pdo->prepare("SELECT p.exento_iva FROM productos p JOIN presentaciones pr ON pr.producto_id = p.id WHERE pr.id = ?");
+            $stEx->execute([$p['presentacion_id']]);
+            if ($stEx->fetchColumn()) {
+                $exento_bs += $sub_bs;
+            } else {
+                $b = $sub_bs / 1.16;
+                $base_bs += $b;
+                $iva_bs += ($sub_bs - $b);
+            }
         }
         $total_bs = $total_usd * $tasa;
         
         // Crear Compra
-        $stmt = $pdo->prepare("INSERT INTO compras (proveedor_id, factura_numero, tasa_bs_usd, total_usd, total_bs, estado) VALUES (?, ?, ?, ?, ?, 'PROCESADA')");
-        $stmt->execute([$proveedor_id, $factura, $tasa, $total_usd, $total_bs]);
+        $stmt = $pdo->prepare("INSERT INTO compras (proveedor_id, factura_numero, numero_control, tasa_bs_usd, total_usd, total_bs, exento_bs, base_imponible_bs, iva_bs, estado, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PROCESADA', ?)");
+        $datetime = $fecha_factura . " " . date('H:i:s');
+        $stmt->execute([$proveedor_id, $factura, $numero_control, $tasa, $total_usd, $total_bs, $exento_bs, $base_bs, $iva_bs, $datetime]);
         $compra_id = $pdo->lastInsertId();
         
-        // Insertar Detalles (El Trigger `trg_compra_detalle_insert` SUMARÁ el stock y calculará promedio)
+        // Insertar Detalles y Actualizar Precios
         $stmtDetalle = $pdo->prepare("INSERT INTO compra_detalles (compra_id, presentacion_id, cantidad, costo_unitario_usd, costo_total_usd) VALUES (?, ?, ?, ?, ?)");
         
         foreach ($productos as $p) {
-            $stmtDetalle->execute([$compra_id, $p['presentacion_id'], floatval($p['cantidad']), floatval($p['costo_unitario_usd']), floatval($p['costo_total_usd'])]);
+            $monto_costo = floatval($p['costo_unitario_usd']);
+            $pres_id = intval($p['presentacion_id']);
+            $stmtDetalle->execute([$compra_id, $pres_id, floatval($p['cantidad']), $monto_costo, floatval($p['costo_total_usd'])]);
+            
+            // Auto update price in presentaciones AND globally update product avg cost
+            // This ensures price consistency
+            $q = $pdo->prepare("SELECT pr.precio_venta_usd, p.costo_promedio_usd, p.id as prod_id FROM presentaciones pr JOIN productos p ON pr.producto_id = p.id WHERE pr.id = ?");
+            $q->execute([$pres_id]);
+            $old_data = $q->fetch(PDO::FETCH_ASSOC);
+            
+            if ($old_data) {
+                // Update product average cost
+                $pdo->prepare("UPDATE productos SET costo_promedio_usd = ? WHERE id = ?")->execute([$monto_costo, $old_data['prod_id']]);
+                
+                // Update presentation price based on margin
+                $old_cost = floatval($old_data['costo_promedio_usd']);
+                $old_precio = floatval($old_data['precio_venta_usd']);
+                $margin = ($old_cost > 0) ? (($old_precio - $old_cost) / $old_cost) : 0.3;
+                $new_price = $monto_costo + ($monto_costo * $margin);
+                $pdo->prepare("UPDATE presentaciones SET precio_venta_usd = ? WHERE id = ?")->execute([$new_price, $pres_id]);
+            }
         }
         
         $pdo->commit();
@@ -86,9 +123,19 @@ $prods = $pdo->query("SELECT pr.id, pr.codigo_barras, CONCAT(p.nombre, ' [', pr.
                     </select>
                 </div>
                 
-                <div class="mb-3">
-                    <label class="form-label text-muted small">N° Factura Física (Opcional)</label>
-                    <input type="text" name="factura" class="form-control" placeholder="Ej: 0001-A">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small">N° Factura Física *</label>
+                        <input type="text" name="factura" class="form-control" required placeholder="Ej: 0001-A">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small">N° Control SENIAT *</label>
+                        <input type="text" name="numero_control" class="form-control" required placeholder="00-001">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small">Fecha Documento *</label>
+                        <input type="date" name="fecha_factura" class="form-control" required value="<?php echo date('Y-m-d'); ?>">
+                    </div>
                 </div>
                 
                 <div class="alert alert-warning py-2 mb-4" style="font-size: 0.85rem;">
@@ -109,7 +156,7 @@ $prods = $pdo->query("SELECT pr.id, pr.codigo_barras, CONCAT(p.nombre, ' [', pr.
     
     <!-- Panel Derecho: Agregar Producto a la tabla de compra -->
     <div class="col-lg-7">
-        <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card shadow-sm border-0 mb-4 bg-body-tertiary">
             <div class="card-body p-4">
                 <div class="row g-2 align-items-end">
                     <div class="col-md-5">

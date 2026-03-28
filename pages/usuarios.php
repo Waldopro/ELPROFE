@@ -97,7 +97,7 @@ require_once '../includes/header.php';
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 datatable">
                 <thead class="bg-light">
                     <tr>
                         <th class="ps-4">ID</th>

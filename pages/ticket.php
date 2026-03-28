@@ -68,7 +68,7 @@ if ($is_demo) {
 
     // Cargar Detalles Reales
     $stmtD = $pdo->prepare("
-        SELECT pd.*, pres.nombre_presentacion, prod.nombre as producto_nombre
+        SELECT pd.*, pres.nombre_presentacion, prod.nombre as producto_nombre, prod.codigo_interno
         FROM proforma_detalles pd
         JOIN presentaciones pres ON pd.presentacion_id = pres.id
         JOIN productos prod ON pres.producto_id = prod.id
@@ -138,22 +138,24 @@ if ($es_whatsapp) {
         .info-section { margin: 10px 0; font-size: 10px; }
         .info-section div { margin-bottom: 2px; }
 
-        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-        .items-table th { border-bottom: 1px solid #000; padding: 4px 0; text-align: left; font-size: 10px; }
-        .items-table td { padding: 4px 0; vertical-align: top; font-size: 10px; }
+        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; table-layout: fixed; font-family: 'Courier New', Courier, monospace; }
+        .items-table th { font-size: 7px; text-align: left; padding: 2px 0; line-height: 1.1; overflow: hidden; }
+        .items-table td { font-size: 8.5px; padding: 4px 0; vertical-align: top; line-height: 1.2; overflow: hidden; }
+        .items-table .sep-top th { border-top: 1px solid #000; padding-top: 4px; }
+        .items-table .sep-bottom th { border-bottom: 1px solid #000; padding-bottom: 4px; }
         
-        .total-area { margin-top: 10px; }
-        .total-row { display: flex; justify-content: space-between; padding: 2px 0; }
-        .total-row.grand { font-size: 13px; font-weight: bold; border-top: 1px double #000; padding-top: 5px; margin-top: 5px; }
+        .total-area { margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
+        .total-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 10px; align-items: baseline; }
+        .total-row .val { text-align: right; min-width: 80px; }
+        .total-row.grand { font-size: 14px; font-weight: bold; border-top: 1px double #000; padding-top: 8px; margin-top: 5px; }
 
         .btn-panel { 
-            position: fixed; top: 10px; right: 10px; z-index: 9999; 
-            display: flex; flex-direction: column; gap: 8px; 
+            display: flex; flex-direction: column; gap: 10px; padding: 10px;
+            margin-bottom: 15px; border-bottom: 1px dashed #ccc; 
         }
         .btn-ui { 
-            padding: 10px 15px; border-radius: 6px; font-weight: 700; cursor: pointer; border: none; 
-            font-size: 12px; font-family: sans-serif; text-decoration: none; text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; border: none; 
+            font-size: 14px; font-family: sans-serif; text-decoration: none; text-align: center;
         }
         .btn-blue { background: #007bff; color: white; }
         .btn-green { background: #28a745; color: white; }
@@ -175,63 +177,107 @@ if ($es_whatsapp) {
 
 <div class="ticket-wrapper" id="ticket-capture">
     <div class="header center">
-        <img src="../assets/img/logo.png" alt="Logo">
-        <h3><?php echo e(strtoupper($empresa_nombre)); ?></h3>
-        <div>RIF: <?php echo e($empresa_rif); ?></div>
-        <div><?php echo e($empresa_dir); ?></div>
+        <div class="bold" style="font-size: 14px;">SENIAT</div>
+        <div class="bold">RIF <?php echo e($empresa_rif); ?></div>
+        <div class="bold"><?php echo e(strtoupper($empresa_nombre)); ?></div>
+        <div style="font-size: 9px;"><?php echo e($empresa_dir); ?></div>
+        <div class="bold">CAJA <?php echo str_pad($proforma['cajero_id'] ?? 1, 2, "0", STR_PAD_LEFT); ?></div>
     </div>
-
-    <div class="sep"></div>
 
     <div class="info-section">
-        <div><span class="bold">DOC:</span> <?php echo $titulo; ?> #<?php echo str_pad($id, 6, "0", STR_PAD_LEFT); ?></div>
-        <div><span class="bold">FECHA:</span> <?php echo date('d/m/Y H:i', strtotime($proforma['fecha_emision'])); ?></div>
-        <div><span class="bold">CLIENTE:</span> <?php echo e($proforma['cliente_nombre']); ?></div>
-        <div><span class="bold">RIF/CI:</span> <?php echo e($proforma['cedula_rif']); ?></div>
+        <div class="bold" style="margin-top: 10px;">Información del Cliente</div>
+        <div><span class="bold">Cliente:</span> <?php echo e($proforma['cliente_nombre']); ?></div>
+        <div><span class="bold">RIF/C.I.:</span> <?php echo e($proforma['cedula_rif']); ?></div>
+        <div><span class="bold">Vendedor:</span> <?php echo e($proforma['cajero_id']); ?> <?php echo e($proforma['vendedor']); ?></div>
     </div>
 
-    <div class="sep"></div>
+    <div class="center bold" style="font-size: 14px; margin: 10px 0;">
+        <?php echo $titulo; ?>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 5px;">
+        <div class="bold"><?php echo $titulo; ?>:</div>
+        <div class="bold"><?php echo str_pad($proforma['numero_control'] ?? $id, 8, "0", STR_PAD_LEFT); ?></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 5px;">
+        <div>FECHA: <?php echo date('d-m-Y', strtotime($proforma['fecha_emision'])); ?></div>
+        <div class="right">HORA: <?php echo date('H:i', strtotime($proforma['fecha_emision'])); ?></div>
+    </div>
 
     <table class="items-table">
         <thead>
-            <tr>
-                <th width="45%">DESC</th>
-                <th width="20%" class="center">CANT</th>
-                <th width="35%" class="right">TOTAL</th>
+            <tr class="sep-top">
+                <th width="15%">ITEM/</th>
+                <th width="85%" colspan="3">DESCRIPCIÓN</th>
+            </tr>
+            <tr class="sep-bottom">
+                <th width="15%">CÓDIGO</th>
+                <th width="15%" class="center">CANT.</th>
+                <th width="35%" class="right">PRECIO UNIT.</th>
+                <th width="35%" class="right">TOTAL RENGLON</th>
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($detalles as $d): ?>
+            <?php 
+            $i = 1; 
+            foreach ($detalles as $d): 
+                $precio_bs = $d['precio_unitario_usd'] * $tasa_dia;
+                $subtotal_bs = $d['subtotal_usd'] * $tasa_dia;
+            ?>
             <tr>
-                <td colspan="3"><?php echo e($d['producto_nombre']); ?></td>
+                <td class="bold"><?php echo $i++; ?></td>
+                <td colspan="3" class="bold"><?php echo e($d['codigo_interno']); ?> - <?php echo e($d['producto_nombre']); ?></td>
             </tr>
-            <tr>
-                <td><?php echo e($d['nombre_presentacion']); ?></td>
-                <td class="center"><?php echo round($d['cantidad'], 2); ?></td>
-                <td class="right"><?php echo number_format($d['subtotal_usd'], 2, ',', '.'); ?></td>
+            <tr style="border-bottom: 1px dashed #eee;">
+                <td></td>
+                <td class="center"><?php echo round($d['cantidad'], 0); ?></td>
+                <td class="right"><?php echo number_format($precio_bs, 2, ',', '.'); ?></td>
+                <td class="right"><?php echo number_format($subtotal_bs, 2, ',', '.'); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
 
-    <div class="sep"></div>
-
     <div class="total-area">
-        <div class="total-row grand">
-            <span>TOTAL REF $:</span>
-            <span><?php echo number_format($proforma['total_usd'], 2, ',', '.'); ?></span>
+        <div class="total-row">
+            <span class="bold">EXENTO (E)</span>
+            <span class="val">Bs. <?php echo number_format($proforma['exento_bs'] ?? 0, 2, ',', '.'); ?></span>
         </div>
-        <div class="total-row" style="font-size: 11px; margin-top: 5px;">
-            <span>TOTAL BS (TASA <?php echo number_format($tasa_dia, 2); ?>):</span>
-            <span class="bold"><?php echo number_format($total_con_iva, 2, ',', '.'); ?></span>
+        <div class="total-row">
+            <span class="bold">BI G (<?php echo number_format($empresa_iva_pct, 1); ?>%)</span>
+            <span class="val">Bs. <?php echo number_format($proforma['base_imponible_bs'] ?? $base_imponible, 2, ',', '.'); ?></span>
+        </div>
+        <div class="total-row">
+            <span class="bold">IVA G (<?php echo number_format($empresa_iva_pct, 1); ?>%)</span>
+            <span class="val">Bs. <?php echo number_format($proforma['iva_bs'] ?? $monto_iva, 2, ',', '.'); ?></span>
+        </div>
+        
+        <div class="total-row bold" style="border-top: 1px solid #000; margin-top: 5px; padding-top: 5px;">
+            <span>TOTAL FACTURA</span>
+            <span class="val">Bs. <?php echo number_format($total_con_iva, 2, ',', '.'); ?></span>
         </div>
     </div>
 
-    <div class="sep"></div>
-    
-    <div class="center" style="margin-top: 10px; font-size: 10px;">
+    <div style="margin-top: 15px;">
+        <div class="center bold" style="font-size: 11px; margin-bottom: 8px;">FORMA DE PAGO</div>
+        <?php foreach ($pagos as $p): ?>
+        <div class="total-row" style="font-size: 10px;">
+            <span><?php echo e(strtoupper($p['metodo'])); ?></span>
+            <span class="val">Bs. <?php echo number_format($p['monto_entregado_bs'] ?: ($p['monto_entregado_usd'] * $tasa_dia), 2, ',', '.'); ?></span>
+        </div>
+        <?php endforeach; ?>
+        
+        <div class="total-row bold grand" style="margin-top: 10px;">
+            <div style="flex: 1;">TOTAL NETO</div>
+            <div class="val" style="font-size: 16px;">
+                <span>Bs. <?php echo number_format($total_con_iva, 2, ',', '.'); ?></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-section center" style="margin-top: 20px; font-size: 9px; opacity: 0.8;">
         GRACIAS POR SU COMPRA<br>
-        *** COPIA DIGITAL ***
+        
     </div>
 </div>
 
@@ -253,10 +299,10 @@ if ($es_whatsapp) {
             const captureEl = document.getElementById('ticket-capture');
             const canvas = await html2canvas(captureEl, { 
                 backgroundColor: '#ffffff', 
-                scale: 3, // Mayor escala para tickets térmicos (fuentes monoespaciadas)
+                scale: 3, 
                 useCORS: true,
                 logging: false,
-                width: 250 // Ancho aproximado de 58mm en píxeles @ 96dpi
+                width: 255 
             });
 
             canvas.toBlob(async (blob) => {

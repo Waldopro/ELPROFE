@@ -217,6 +217,7 @@ CREATE TABLE bitacora_accesos (
     usuario_id INT NULL,
     username_intento VARCHAR(50),
     ip VARCHAR(45),
+    ubicacion VARCHAR(190) NULL,
     dispositivo VARCHAR(255),
     exito TINYINT(1),
     fecha DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -229,6 +230,7 @@ CREATE TABLE bitacora_acciones (
     accion VARCHAR(255) NOT NULL,
     detalle TEXT,
     ip VARCHAR(45),
+    ubicacion VARCHAR(190) NULL,
     fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
@@ -247,8 +249,8 @@ INSERT INTO metodos_pago (nombre, moneda_base) VALUES
 ('Binance', 'USD');
 
 INSERT INTO usuarios (username, password, nombre, rol) VALUES 
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Global', 'ADMIN'),
-('caja01', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Cajero Principal', 'CAJERO');
+('admin', '$2y$12$w7qwpkTO3fcjLCFg6fGmw.aWmIIrkcpAUGjLGGMpVjqpSj49vC1bC', 'Administrador Global', 'ADMIN'),
+('caja01', '$2y$12$w7qwpkTO3fcjLCFg6fGmw.aWmIIrkcpAUGjLGGMpVjqpSj49vC1bC', 'Cajero Principal', 'CAJERO');
 
 ALTER TABLE proformas ADD CONSTRAINT fk_proforma_cajero FOREIGN KEY (cajero_id) REFERENCES usuarios(id) ON DELETE RESTRICT;
 ALTER TABLE sesiones_caja ADD CONSTRAINT fk_sesion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT;

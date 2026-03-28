@@ -88,13 +88,38 @@ if (!defined('NO_LOGIN_REQUIRED')) {
             <small class="ms-1 text-primary fw-bold">[<?php echo getConfig('tasa_tipo', $pdo) ?: 'FIJA'; ?>]</small>
           </span>
 
-          <button class="btn btn-outline-warning position-relative d-none d-md-inline-flex" id="stock-alert-btn" title="Alertas de inventario" aria-label="Alertas de inventario">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="stock-alert-count">0</span>
-          </button>
+          <div class="dropdown">
+            <button class="btn btn-outline-light elprofe-topbar-icon-btn position-relative" id="notifications-btn" title="Notificaciones" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Abrir notificaciones">
+              <i class="fa-solid fa-bell"></i>
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="notifications-count">0</span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-0 elprofe-notify-menu" id="notifications-menu">
+              <div class="elprofe-notify-header d-flex align-items-center justify-content-between px-3 py-2">
+                <strong>Notificaciones</strong>
+                <div class="d-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="notifications-refresh" title="Actualizar notificaciones" aria-label="Actualizar notificaciones">
+                    <i class="fa-solid fa-rotate"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="notifications-mark-read" title="Marcar como vistas" aria-label="Marcar notificaciones como vistas">
+                    <i class="fa-solid fa-check-double"></i>
+                  </button>
+                  <small class="text-muted" id="notifications-time">--:--</small>
+                </div>
+              </div>
+              <div id="notifications-list" class="elprofe-notify-list">
+                <div class="px-3 py-3 text-muted small">Cargando notificaciones...</div>
+              </div>
+              <div class="elprofe-notify-footer px-3 py-2 border-top">
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                  <a href="/ELPROFE/inventario" class="small fw-semibold">Ir a inventario</a>
+                  <a href="/ELPROFE/proformas" class="small fw-semibold">Ir a cobranza</a>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Theme Toggle -->
-          <button class="btn btn-outline-light" id="theme-toggle" title="Cambiar Tema (Alt+T)" aria-label="Cambiar tema">
+          <button class="btn btn-outline-light elprofe-topbar-icon-btn" id="theme-toggle" title="Cambiar Tema (Alt+T)" aria-label="Cambiar tema">
             <i class="fa-solid fa-moon"></i>
           </button>
 
@@ -110,6 +135,8 @@ if (!defined('NO_LOGIN_REQUIRED')) {
               <span class="d-none d-sm-inline"><?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="/ELPROFE/perfil"><i class="fa-solid fa-id-badge"></i> Mi Perfil</a></li>
+              <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="/ELPROFE/logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</a></li>
             </ul>
           </div>
@@ -146,6 +173,14 @@ if (!defined('NO_LOGIN_REQUIRED')) {
           <a href="/ELPROFE/clientes" class="elprofe-nav-link <?php echo $isActive('/clientes') ? 'active' : ''; ?>">
             <i class="fa-solid fa-users"></i>
             <span>Clientes</span>
+          </a>
+          <a href="/ELPROFE/acerca" class="elprofe-nav-link <?php echo $isActive('/acerca') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Acerca de</span>
+          </a>
+          <a href="/ELPROFE/manual" class="elprofe-nav-link <?php echo $isActive('/manual') ? 'active' : ''; ?>">
+            <i class="fa-solid fa-book-open-reader"></i>
+            <span>Manual de Usuario</span>
           </a>
         </div>
 
@@ -239,6 +274,14 @@ if (!defined('NO_LOGIN_REQUIRED')) {
                 <a href="/ELPROFE/clientes" class="elprofe-nav-link <?php echo $isActive('/clientes') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-users"></i>
                   <span>Clientes</span>
+                </a>
+                <a href="/ELPROFE/acerca" class="elprofe-nav-link <?php echo $isActive('/acerca') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-circle-info"></i>
+                  <span>Acerca de</span>
+                </a>
+                <a href="/ELPROFE/manual" class="elprofe-nav-link <?php echo $isActive('/manual') ? 'active' : ''; ?>">
+                  <i class="fa-solid fa-book-open-reader"></i>
+                  <span>Manual de Usuario</span>
                 </a>
               </div>
 

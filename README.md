@@ -33,8 +33,10 @@
 
 ### 📱 Compartición y Movilidad (Novedades)
 - **Progressive Web App (PWA):** Sistema instalable gráficamente en dispositivos Android/iOS y Escritorios (Chrome/Edge) con soporte offline en caché (Service Workers) y Manifest dedicado.
-- **Módulo Multi-Comprobante:** Generación bajo normativas SENIAT de *Tickets Térmicos* (58mm/80mm) con desglose de impuestos IVA/B.I., y *Notas de Entrega (Factura A4)* diseñadas para impresoras láser o exportación a PDF.
+- **Escáner de Cámara para Móviles:** Integración avanzada con `html5-qrcode` que permite usar la cámara trasera de cualquier smartphone como lector de códigos de barras profesional, ideal para inventariado rápido y ventas sin hardware adicional. (Requiere HTTPS).
+- **Módulo Multi-Comprobante Pro:** Generación bajo normativas SENIAT de *Tickets Térmicos* (58mm/80mm) con rediseño de alta legibilidad, desglose dinámico de impuestos IVA/B.I., e identificación automática de **Caja** (01, 02, etc.) según el cajero en sesión.
 - **Compartición Nativa Web-Share (WhatsApp):** Motor gráfico impulsado por **HTML2Canvas** capaz de fotografiar virtualmente los comprobantes de venta desde el navegador (limpiando botones) y convertirlos en imágenes .PNG físicas de alta calidad. Envío instantáneo por *WhatsApp Native* en móviles, guardando copias perpetuas transaccionales en el servidor (`assets/tickets`).
+- **Gestión de Cobranza Inteligente:** Módulo de cobranza (Fiados) con filtros reactivos para separar deudas activas del historial pagado, facilitando el control de cuentas por cobrar.
 - **Notas Editables Al Vuelo:** Opción táctil de escritura rápida sobre las facturas Web para colocar observaciones instantáneas antes de la impresión, almacenadas mediante Caché `localStorage`.
 - **Entorno de Testing Autónomo:** Área exclusiva para Administradores que carga "Plantillas Genéricas de Prueba Guiada", permitiendo revisar y calibrar las ticketeras sin necesidad de procesar ventas ni ensuciar la Base de Datos.
 - **Catálogo Modal de Productos en POS:** Botón de catálogo con búsqueda por nombre/código y selección rápida para cargar productos al carrito.

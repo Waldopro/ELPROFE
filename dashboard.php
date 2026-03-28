@@ -136,7 +136,7 @@ require_once 'includes/header.php';
         <div class="card h-100 border-0 shadow-sm bg-body text-body elprofe-soft-card">
             <div class="card-body p-4 d-flex flex-column justify-content-center">
                 <h3 class="fw-bold mb-2 text-primary">Turno Operativo</h3>
-                <p class="mb-0 text-muted">Mantén el registro claro de tus cobros. Usa <kbd class="bg-secondary px-2">F2</kbd> en cualquier momento para atender.</p>
+                <p class="mb-0 text-muted">Mantén el registro claro de tus cobros. Usa <kbd class="bg-secondary px-2 shortcut-hint">F2</kbd> en cualquier momento para atender.</p>
             </div>
         </div>
     </div>
@@ -152,7 +152,7 @@ require_once 'includes/header.php';
                    </div>
                </div>
                <div class="d-grid gap-2 mt-auto">
-                   <a href="/ELPROFE/ventas" class="btn btn-primary fw-bold shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nueva Proforma (F2)</a>
+                   <a href="/ELPROFE/ventas" class="btn btn-primary fw-bold shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nueva Proforma <span class="shortcut-hint">(F2)</span></a>
                    <?php if (isAdmin()): ?>
                    <a href="/ELPROFE/compras" class="btn btn-outline-secondary text-body"><i class="fa-solid fa-truck"></i> Registrar Compra</a>
                    <?php endif; ?>

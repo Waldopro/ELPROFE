@@ -8,6 +8,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     verifyCsrfToken($_POST['csrf_token'] ?? '');
 
     if ($_POST['action'] === 'abrir_sesion') {
+        if (!tasaDelDiaVigente($pdo)) {
+            setFlash('error', 'Debes actualizar/verificar la tasa del día antes de abrir caja.');
+            header("Location: /ELPROFE/configuracion");
+            exit;
+        }
         $m_usd = floatval($_POST['monto_inicial_usd'] ?? 0);
         $m_bs = floatval($_POST['monto_inicial_bs'] ?? 0);
 
@@ -23,15 +28,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         $stmt = $pdo->prepare("INSERT INTO sesiones_caja (usuario_id, monto_inicial_usd, monto_inicial_bs) VALUES (?, ?, ?)");
         $stmt->execute([$_SESSION['user_id'], $m_usd, $m_bs]);
+        registrarAccion($pdo, 'CAJA', 'APERTURA', "Caja abierta con $m_usd USD / $m_bs Bs");
         setFlash('success', 'Caja abierta correctamente.');
         header("Location: /ELPROFE/mi_caja");
         exit;
     }
 
     if ($_POST['action'] === 'cerrar_sesion') {
-        $m_cierre_usd = ($_POST['monto_cierre_usd_declarado'] ?? '') === '' ? null : floatval($_POST['monto_cierre_usd_declarado']);
-        $m_cierre_bs = ($_POST['monto_cierre_bs_declarado'] ?? '') === '' ? null : floatval($_POST['monto_cierre_bs_declarado']);
+        $rawCierreUsd = trim((string)($_POST['monto_cierre_usd_declarado'] ?? ''));
+        $rawCierreBs = trim((string)($_POST['monto_cierre_bs_declarado'] ?? ''));
         $notas = trim($_POST['notas_cierre'] ?? '');
+        if ($rawCierreUsd === '' || $rawCierreBs === '') {
+            setFlash('error', 'Para cerrar caja debes declarar ambos montos: USD y Bs.');
+            header("Location: /ELPROFE/mi_caja");
+            exit;
+        }
+        $m_cierre_usd = floatval($rawCierreUsd);
+        $m_cierre_bs = floatval($rawCierreBs);
+        if ($m_cierre_usd < 0 || $m_cierre_bs < 0) {
+            setFlash('error', 'Los montos de cierre no pueden ser negativos.');
+            header("Location: /ELPROFE/mi_caja");
+            exit;
+        }
 
         $stmt = $pdo->prepare("SELECT id FROM sesiones_caja WHERE usuario_id = ? AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1");
         $stmt->execute([$_SESSION['user_id']]);
@@ -53,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
              WHERE id = ? AND usuario_id = ?
         ");
         $stmt->execute([$m_cierre_usd, $m_cierre_bs, $notas, $sesId, $_SESSION['user_id']]);
+        registrarAccion($pdo, 'CAJA', 'CIERRE', "Caja cerrada (ID $sesId). Declarado: $m_cierre_usd USD / $m_cierre_bs Bs");
         setFlash('success', 'Caja cerrada correctamente.');
         header("Location: /ELPROFE/mi_caja");
         exit;
@@ -67,13 +86,18 @@ $sesion = $stmt->fetch();
 require_once '../includes/header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-cash-register me-2"></i> Mi Caja</h2>
+<div class="d-flex justify-content-between align-items-center mb-4 elprofe-hero">
+  <h2 class="fw-bold mb-0 text-primary elprofe-panel-title"><i class="fa-solid fa-cash-register me-2"></i> Mi Caja</h2>
   <span class="badge bg-dark border border-secondary">Multi-caja</span>
 </div>
 
+<div class="alert alert-info border-0 shadow-sm py-2 d-flex align-items-center gap-2">
+  <i class="fa-solid fa-circle-info"></i>
+  <span class="small mb-0">Esta pantalla se sincroniza en tiempo real para mostrar movimientos y balances por método.</span>
+</div>
+
 <?php if (!$sesion): ?>
-  <div class="card shadow-sm border-0">
+  <div class="card shadow-sm border-0 elprofe-soft-card">
     <div class="card-body p-4">
       <h5 class="fw-bold mb-2">Abrir caja</h5>
       <p class="text-muted mb-4">Debes abrir tu caja antes de procesar ventas o registrar abonos.</p>
@@ -97,7 +121,7 @@ require_once '../includes/header.php';
 <?php else: ?>
   <div class="row g-4">
     <div class="col-lg-4">
-      <div class="card shadow-sm border-0 h-100">
+      <div class="card shadow-sm border-0 h-100 elprofe-soft-card">
         <div class="card-body p-4">
           <h6 class="text-muted text-uppercase fw-bold mb-3">Sesión activa</h6>
           <div class="d-flex justify-content-between align-items-center">
@@ -115,7 +139,7 @@ require_once '../includes/header.php';
     </div>
 
     <div class="col-lg-8">
-      <div class="card shadow-sm border-0">
+      <div class="card shadow-sm border-0 elprofe-soft-card">
         <div class="card-body p-4">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="fw-bold mb-0">Balance por método</h5>
@@ -140,7 +164,7 @@ require_once '../includes/header.php';
     </div>
   </div>
 
-  <div class="card shadow-sm border-0 mt-4">
+  <div class="card shadow-sm border-0 mt-4 elprofe-soft-card">
     <div class="card-body p-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="fw-bold mb-0">Últimos movimientos</h5>
@@ -166,19 +190,23 @@ require_once '../includes/header.php';
     </div>
   </div>
 
-  <div class="card shadow-sm border-0 mt-4">
+  <div class="card shadow-sm border-0 mt-4 elprofe-soft-card">
     <div class="card-body p-4">
       <h5 class="fw-bold mb-3 text-danger"><i class="fa-solid fa-lock me-2"></i> Cerrar caja</h5>
+      <div class="alert alert-warning py-2 small mb-3">
+        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+        El cierre exige monto declarado en <strong>USD</strong> y <strong>Bs</strong>. Ambos campos son obligatorios.
+      </div>
       <form method="POST" action="/ELPROFE/mi_caja" class="row g-3">
         <input type="hidden" name="action" value="cerrar_sesion">
         <?php echo csrfField(); ?>
         <div class="col-md-6">
           <label class="form-label">Monto cierre declarado (USD)</label>
-          <input type="number" step="0.01" min="0" name="monto_cierre_usd_declarado" class="form-control" placeholder="Opcional">
+          <input type="number" step="0.01" min="0" name="monto_cierre_usd_declarado" class="form-control" placeholder="Obligatorio" required>
         </div>
         <div class="col-md-6">
           <label class="form-label">Monto cierre declarado (Bs)</label>
-          <input type="number" step="0.01" min="0" name="monto_cierre_bs_declarado" class="form-control" placeholder="Opcional">
+          <input type="number" step="0.01" min="0" name="monto_cierre_bs_declarado" class="form-control" placeholder="Obligatorio" required>
         </div>
         <div class="col-12">
           <label class="form-label">Notas</label>
@@ -214,11 +242,18 @@ require_once '../includes/header.php';
         tb.innerHTML = '';
         (json.balances || []).forEach((b) => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="fw-bold">${b.nombre}</td>
-            <td class="text-end text-success">$${fmt(b.balance_usd)}</td>
-            <td class="text-end">Bs. ${fmt(b.balance_bs)}</td>
-          `;
+          const tdNombre = document.createElement('td');
+          tdNombre.className = 'fw-bold';
+          tdNombre.textContent = String(b.nombre || '');
+          const tdUsd = document.createElement('td');
+          tdUsd.className = 'text-end text-success';
+          tdUsd.textContent = `$${fmt(b.balance_usd)}`;
+          const tdBs = document.createElement('td');
+          tdBs.className = 'text-end';
+          tdBs.textContent = `Bs. ${fmt(b.balance_bs)}`;
+          tr.appendChild(tdNombre);
+          tr.appendChild(tdUsd);
+          tr.appendChild(tdBs);
           tb.appendChild(tr);
         });
 
@@ -232,14 +267,39 @@ require_once '../includes/header.php';
         movs.forEach((m) => {
           const badge = m.tipo_movimiento === 'ENTRADA' ? 'bg-success' : 'bg-danger';
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="text-muted small">${m.fecha}</td>
-            <td class="fw-bold">${m.metodo_nombre}</td>
-            <td><span class="badge ${badge}">${m.tipo_movimiento}</span></td>
-            <td class="text-muted small">${(m.referencia_tabla || '')} #${(m.referencia_id || '')}</td>
-            <td class="text-end">$${fmt(m.monto_usd)}</td>
-            <td class="text-end">Bs. ${fmt(m.monto_bs)}</td>
-          `;
+
+          const tdFecha = document.createElement('td');
+          tdFecha.className = 'text-muted small';
+          tdFecha.textContent = String(m.fecha || '');
+
+          const tdMetodo = document.createElement('td');
+          tdMetodo.className = 'fw-bold';
+          tdMetodo.textContent = String(m.metodo_nombre || '');
+
+          const tdTipo = document.createElement('td');
+          const spanBadge = document.createElement('span');
+          spanBadge.className = `badge ${badge}`;
+          spanBadge.textContent = String(m.tipo_movimiento || '');
+          tdTipo.appendChild(spanBadge);
+
+          const tdRef = document.createElement('td');
+          tdRef.className = 'text-muted small';
+          tdRef.textContent = `${String(m.referencia_tabla || '')} #${String(m.referencia_id || '')}`;
+
+          const tdUsd = document.createElement('td');
+          tdUsd.className = 'text-end';
+          tdUsd.textContent = `$${fmt(m.monto_usd)}`;
+
+          const tdBs = document.createElement('td');
+          tdBs.className = 'text-end';
+          tdBs.textContent = `Bs. ${fmt(m.monto_bs)}`;
+
+          tr.appendChild(tdFecha);
+          tr.appendChild(tdMetodo);
+          tr.appendChild(tdTipo);
+          tr.appendChild(tdRef);
+          tr.appendChild(tdUsd);
+          tr.appendChild(tdBs);
           tm.appendChild(tr);
         });
       } catch (e) {}
@@ -253,4 +313,3 @@ require_once '../includes/header.php';
 <?php endif; ?>
 
 <?php require_once '../includes/footer.php'; ?>
-
