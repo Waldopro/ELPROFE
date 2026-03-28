@@ -395,6 +395,15 @@ body {
     color: #334155;
 }
 
+/* Hide shortcuts on mobile across the system */
+@media (max-width: 991.98px) {
+    .elprofe-nav-shortcut,
+    .elprofe-footer-shortcuts,
+    .shortcut-hint {
+        display: none !important;
+    }
+}
+
 /* Tabla mejorada */
 .table-enhancer-controls,
 .table-enhancer-footer {
@@ -644,14 +653,29 @@ th.te-sortable:hover {
 }
 
 [data-bs-theme="light"] .elprofe-hero {
-    background: linear-gradient(135deg, rgba(219, 234, 254, 0.8) 0%, rgba(241, 245, 249, 0.95) 100%);
-    border: 1px solid #c8d7eb;
+    background: linear-gradient(135deg, rgba(219, 234, 254, 0.92) 0%, rgba(244, 247, 254, 0.96) 100%);
+    border: 1px solid #aac9f1;
+    box-shadow: 0 8px 18px rgba(23, 62, 117, 0.1);
+}
+
+[data-bs-theme="light"] .elprofe-hero .elprofe-panel-title,
+[data-bs-theme="light"] .elprofe-hero h2,
+[data-bs-theme="light"] .elprofe-hero h3,
+[data-bs-theme="light"] .elprofe-hero h4,
+[data-bs-theme="light"] .elprofe-hero h5 {
+    color: #0c4aa6 !important;
+}
+
+[data-bs-theme="light"] .elprofe-hero p,
+[data-bs-theme="light"] .elprofe-hero small {
+    color: #1f3f70 !important;
 }
 
 .elprofe-hero {
     border-radius: 14px;
     padding: 0.9rem 1rem;
 }
+
 
 .elprofe-hero .elprofe-panel-title,
 .elprofe-hero h2,
@@ -691,15 +715,18 @@ th.te-sortable:hover {
 /* Footer profesional y uniforme */
 .elprofe-footer {
     border-top: 1px solid var(--elprofe-border);
-    background: color-mix(in srgb, var(--bs-body-bg) 72%, #0b1227 28%);
+    background: color-mix(in srgb, var(--bs-body-bg) 85%, #0b1227 15%);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
 }
 
 [data-bs-theme="light"] .elprofe-footer {
-    background: #e9eef6;
+    background: rgba(233, 238, 246, 0.85);
 }
 
 .elprofe-footer-copy {
     color: var(--bs-secondary-color);
+    font-weight: 500;
 }
 
 .elprofe-footer-shortcuts {
@@ -712,15 +739,20 @@ th.te-sortable:hover {
 }
 
 .elprofe-footer-shortcuts kbd {
-    border-radius: 7px;
-    padding: 0.16rem 0.38rem;
+    border-radius: 6px;
+    padding: 0.12rem 0.32rem;
     font-weight: 700;
+    font-size: 0.7rem;
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    border: 1px solid var(--elprofe-border);
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
 }
 
-@media (max-width: 768px) {
-    .elprofe-footer-shortcuts {
-        font-size: 0.76rem;
-    }
+.elprofe-footer-version {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+    opacity: 0.7;
 }
 
 [data-bs-theme="dark"] .elprofe-soft-card {
