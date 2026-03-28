@@ -5,9 +5,22 @@ require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
 checkLogin();
-verifyCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
+
+// Solo validamos CSRF en operaciones de escritura (POST/PUT/PATCH/DELETE).
+$httpMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+if ($httpMethod !== 'GET') {
+    verifyCsrfToken($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
+}
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+function tipoMetodoPagoApi(string $nombre): string {
+    $n = strtolower(trim($nombre));
+    if (str_contains($n, 'usd') || str_contains($n, 'dolar') || str_contains($n, 'dólar') || str_contains($n, 'usdt') || str_contains($n, 'binance')) {
+        return 'USD';
+    }
+    return 'BS';
+}
 
 // Bootstrap reservas (evita error en instalaciones sin migración)
 try {
@@ -41,36 +54,60 @@ if ($action === 'buscar_producto') {
     $q = trim($_GET['q'] ?? '');
     $resId = intval($_GET['reservation_id'] ?? 0);
     if(strlen($q) < 2) responseJson([]);
-    
-    $stmt = $pdo->prepare("
-        SELECT 
-            pr.id as presentacion_id,
-            pr.codigo_barras,
-            CONCAT(p.nombre, ' - ', pr.nombre_presentacion) as nombre_completo,
-            pr.precio_venta_usd,
-            pr.factor_conversion,
-            p.stock_actual,
-            GREATEST(
-              p.stock_actual - (
-                SELECT COALESCE(SUM(ri.cantidad * prx.factor_conversion), 0)
-                FROM reservas_carrito_items ri
-                JOIN reservas_carrito r ON ri.reserva_id = r.id
-                JOIN presentaciones prx ON ri.presentacion_id = prx.id
-                WHERE prx.producto_id = p.id
-                  AND r.expires_at > NOW()
-                  AND r.estado IN ('ACTIVE','HOLD')
-                  AND ( :resId = 0 OR r.id <> :resId )
-              ),
-              0
-            ) AS stock_disponible_unidades
-        FROM presentaciones pr
-        JOIN productos p ON pr.producto_id = p.id
-        WHERE pr.codigo_barras = :q OR p.nombre LIKE :lq
-        ORDER BY p.nombre
-        LIMIT 10
-    ");
-    $stmt->execute(['q' => $q, 'lq' => "%$q%", 'resId' => $resId]);
-    $rows = $stmt->fetchAll();
+
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                pr.id as presentacion_id,
+                pr.codigo_barras,
+                p.codigo_interno,
+                CONCAT(p.nombre, ' - ', pr.nombre_presentacion) as nombre_completo,
+                pr.precio_venta_usd,
+                pr.factor_conversion,
+                p.stock_actual,
+                GREATEST(
+                  p.stock_actual - (
+                    SELECT COALESCE(SUM(ri.cantidad * prx.factor_conversion), 0)
+                    FROM reservas_carrito_items ri
+                    JOIN reservas_carrito r ON ri.reserva_id = r.id
+                    JOIN presentaciones prx ON ri.presentacion_id = prx.id
+                    WHERE prx.producto_id = p.id
+                      AND r.expires_at > NOW()
+                      AND r.estado IN ('ACTIVE','HOLD')
+                      AND ( ? = 0 OR r.id <> ? )
+                  ),
+                  0
+                ) AS stock_disponible_unidades
+            FROM presentaciones pr
+            JOIN productos p ON pr.producto_id = p.id
+            WHERE pr.codigo_barras = ? OR p.codigo_barras = ? OR p.codigo_interno = ? OR p.nombre LIKE ?
+            ORDER BY p.nombre
+            LIMIT 10
+        ");
+        $stmt->execute([$resId, $resId, $q, $q, $q, "%$q%"]);
+        $rows = $stmt->fetchAll();
+    } catch (Throwable $e) {
+        // Fallback para instalaciones con esquema parcial de reservas.
+        $stmt = $pdo->prepare("
+            SELECT
+                pr.id AS presentacion_id,
+                pr.codigo_barras,
+                p.codigo_interno,
+                CONCAT(p.nombre, ' - ', pr.nombre_presentacion) AS nombre_completo,
+                pr.precio_venta_usd,
+                pr.factor_conversion,
+                p.stock_actual,
+                p.stock_actual AS stock_disponible_unidades
+            FROM presentaciones pr
+            JOIN productos p ON pr.producto_id = p.id
+            WHERE pr.codigo_barras = ? OR p.codigo_barras = ? OR p.codigo_interno = ? OR p.nombre LIKE ?
+            ORDER BY p.nombre
+            LIMIT 10
+        ");
+        $stmt->execute([$q, $q, $q, "%$q%"]);
+        $rows = $stmt->fetchAll();
+    }
+
     foreach ($rows as &$r) {
         $fc = floatval($r['factor_conversion'] ?? 1);
         $dispUnd = floatval($r['stock_disponible_unidades'] ?? 0);
@@ -87,6 +124,65 @@ if ($action === 'buscar_cliente') {
     $stmt->execute(['q' => $q]);
     $cliente = $stmt->fetch();
     responseJson(['success' => boolval($cliente), 'cliente' => $cliente]);
+}
+
+// GET: Catálogo de productos para modal
+if ($action === 'catalogo_productos') {
+    $q = trim($_GET['q'] ?? '');
+    $limit = max(20, min(200, intval($_GET['limit'] ?? 80)));
+    $like = '%' . $q . '%';
+
+    $stmt = $pdo->prepare("
+        SELECT
+            pr.id AS presentacion_id,
+            p.nombre AS producto_nombre,
+            pr.nombre_presentacion,
+            p.codigo_interno,
+            pr.codigo_barras,
+            pr.precio_venta_usd,
+            pr.factor_conversion,
+            p.stock_actual
+        FROM presentaciones pr
+        JOIN productos p ON p.id = pr.producto_id
+        WHERE (? = '' OR p.nombre LIKE ? OR p.codigo_interno LIKE ? OR pr.codigo_barras LIKE ?)
+        ORDER BY p.nombre ASC
+        LIMIT ?
+    ");
+    $stmt->execute([$q, $like, $like, $like, $limit]);
+    $rows = $stmt->fetchAll();
+    foreach ($rows as &$r) {
+        $fc = max(1.0, floatval($r['factor_conversion'] ?? 1));
+        $stockUnd = floatval($r['stock_actual'] ?? 0);
+        $r['stock_disponible_presentaciones'] = max(0, (int)floor($stockUnd / $fc));
+        $r['nombre_completo'] = $r['producto_nombre'] . ' - ' . $r['nombre_presentacion'];
+    }
+    unset($r);
+    responseJson(['success' => true, 'rows' => $rows]);
+}
+
+// GET: Alertas de stock
+if ($action === 'stock_alertas') {
+    $stmt = $pdo->query("
+        SELECT
+            SUM(CASE WHEN stock_actual <= 0 THEN 1 ELSE 0 END) AS sin_stock,
+            SUM(CASE WHEN stock_actual > 0 AND stock_actual < 5 THEN 1 ELSE 0 END) AS stock_bajo
+        FROM productos
+    ");
+    $sum = $stmt->fetch() ?: ['sin_stock' => 0, 'stock_bajo' => 0];
+
+    $stmtDet = $pdo->query("
+        SELECT id, nombre, codigo_interno, stock_actual
+        FROM productos
+        WHERE stock_actual <= 0 OR stock_actual < 5
+        ORDER BY stock_actual ASC, nombre ASC
+        LIMIT 15
+    ");
+    responseJson([
+        'success' => true,
+        'sin_stock' => (int)($sum['sin_stock'] ?? 0),
+        'stock_bajo' => (int)($sum['stock_bajo'] ?? 0),
+        'detalles' => $stmtDet->fetchAll()
+    ]);
 }
 
 // POST: Procesar Proforma
@@ -138,37 +234,88 @@ if ($action === 'procesar_proforma') {
             }
         }
         
-        // 3. Crear Documento (Proforma o Factura Fiscal)
-        // Regla de negocio: la FACTURA sólo se emite cuando la venta está 100% pagada.
-        // Un FIADO nunca puede nacer como FACTURA.
+        // 3. Preparar pagos (contado / crédito parcial)
+        $pagosInput = json_decode($_POST['pagos'] ?? '[]', true);
+        if (!is_array($pagosInput)) $pagosInput = [];
+
+        $stmtMet = $pdo->query("SELECT id, nombre FROM metodos_pago WHERE activo = 1");
+        $metMap = [];
+        foreach ($stmtMet->fetchAll() as $m) {
+            $metMap[(int)$m['id']] = tipoMetodoPagoApi((string)$m['nombre']);
+        }
+
+        $pagosValidos = [];
+        $suma_pagada_usd = 0.0;
+        foreach ($pagosInput as $pg) {
+            $metId = intval($pg['id'] ?? $pg['metodo_pago_id'] ?? 0);
+            if ($metId <= 0 || !isset($metMap[$metId])) continue;
+            $m_usd = round(floatval($pg['monto_usd'] ?? 0), 2);
+            $m_bs = round(floatval($pg['monto_bs'] ?? 0), 2);
+            if ($metMap[$metId] === 'USD') $m_bs = 0.0; else $m_usd = 0.0;
+            $equiv_usd = round($m_usd + ($m_bs / $tasa), 2);
+            if ($equiv_usd <= 0) continue;
+            $pagosValidos[] = ['id' => $metId, 'monto_usd' => $m_usd, 'monto_bs' => $m_bs, 'equiv_usd' => $equiv_usd];
+            $suma_pagada_usd += $equiv_usd;
+        }
+        $suma_pagada_usd = round($suma_pagada_usd, 2);
+
+        if ($tipo === 'CONTADO' && empty($pagosValidos)) {
+            throw new Exception("Debe estipular al menos un método de pago en ventas de contado.");
+        }
+        if ($tipo === 'CONTADO' && $suma_pagada_usd < ($totalUSD - 0.05)) {
+            throw new Exception("El pago ingresado (\$" . $suma_pagada_usd . ") no cubre la factura (\$" . $totalUSD . ")");
+        }
+        if ($tipo === 'FIADO' && $suma_pagada_usd > ($totalUSD + 0.10)) {
+            throw new Exception("El abono inicial supera el total del documento.");
+        }
+
+        $saldoPendiente = round(max(0, $totalUSD - ($tipo === 'FIADO' ? $suma_pagada_usd : $totalUSD)), 2);
+        if ($tipo === 'CONTADO') $saldoPendiente = 0.0;
+        if ($saldoPendiente <= 0.00001) $saldoPendiente = 0.0;
+        $estado = $saldoPendiente > 0 ? ($suma_pagada_usd > 0 ? 'PARCIAL' : 'PENDIENTE') : 'PAGADO';
+
+        // 4. Crear Documento (Proforma o Factura Fiscal)
         $tipoDocSolicitado = ($_POST['tipo_doc'] ?? 'PROFORMA') === 'FACTURA' ? 'FACTURA' : 'PROFORMA';
         if ($tipo === 'FIADO' && $tipoDocSolicitado === 'FACTURA') {
-            throw new Exception("No se puede emitir FACTURA en ventas a crédito (FIADO). Genere PROFORMA y facture al liquidar.");
+            throw new Exception("No se puede emitir FACTURA en ventas a crédito (FIADO).");
         }
         $tipoDoc = $tipoDocSolicitado;
         
-        $saldoPendiente = ($tipo === 'FIADO') ? $totalUSD : 0.00;
-        $estado = ($tipo === 'FIADO') ? 'PENDIENTE' : 'PAGADO';
+        // 3.1 Calcular desglose SENIAT en Bs
+        $tasa = floatval(getConfig('tasa_usd_bs', $pdo));
+        $exento_bs = 0; $base_imponible_bs = 0; $iva_bs = 0;
         
-        $stmt = $pdo->prepare("INSERT INTO proformas (cliente_id, cajero_id, tipo_documento, tasa_dia_usd_bs, total_usd, saldo_pendiente_usd, estado) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$clienteId, $_SESSION['user_id'], $tipoDoc, $tasa, $totalUSD, $saldoPendiente, $estado]);
+        foreach ($productos as $p) {
+            $sub_bs = $p['subtotal_usd'] * $tasa;
+            // Verificar exento desde la DB
+            $stEx = $pdo->prepare("SELECT exento_iva FROM productos p JOIN presentaciones pr ON pr.producto_id = p.id WHERE pr.id = ?");
+            $stEx->execute([$p['presentacion_id']]);
+            if ($stEx->fetchColumn()) {
+                $exento_bs += $sub_bs;
+            } else {
+                $b = $sub_bs / 1.16;
+                $base_imponible_bs += $b;
+                $iva_bs += ($sub_bs - $b);
+            }
+        }
+
+        // Correlativo de Control simple para el ejemplo
+        $ultimoControl = $pdo->query("SELECT MAX(CAST(numero_control AS UNSIGNED)) FROM proformas")->fetchColumn() ?: 1000;
+        $numeroControl = $ultimoControl + 1;
+
+        $stmt = $pdo->prepare("INSERT INTO proformas (cliente_id, cajero_id, tipo_documento, factura_numero, numero_control, tasa_dia_usd_bs, total_usd, saldo_pendiente_usd, estado, exento_bs, base_imponible_bs, iva_bs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $fac_num = ($tipoDoc === 'FACTURA') ? 'F-' . str_pad($numeroControl, 6, '0', STR_PAD_LEFT) : null;
+        $stmt->execute([$clienteId, $_SESSION['user_id'], $tipoDoc, $fac_num, $numeroControl, $tasa, $totalUSD, $saldoPendiente, $estado, $exento_bs, $base_imponible_bs, $iva_bs]);
         $proforma_id = $pdo->lastInsertId();
         
-        // 4. Insertar Detalles (los triggers creados se encargarán de restar el inventario base multiplicando el factor!)
+        // 5. Insertar Detalles (los triggers creados se encargarán de restar el inventario base multiplicando el factor!)
         $stmtDetalle = $pdo->prepare("INSERT INTO proforma_detalles (proforma_id, presentacion_id, cantidad, precio_unitario_usd, subtotal_usd) VALUES (?, ?, ?, ?, ?)");
         foreach ($productos as $p) {
             $stmtDetalle->execute([$proforma_id, $p['presentacion_id'], $p['cantidad'], $p['precio_unitario_usd'], $p['subtotal_usd']]);
         }
         
-        // 5. Si es de Contado, registrar Abonos Fragmentados Equivalentes
-        if ($tipo === 'CONTADO') {
-            $pagos = json_decode($_POST['pagos'] ?? '[]', true);
-            if (empty($pagos)) throw new Exception("Debe estipular al menos un método de pago en ventas de contado.");
-            
-            $stmtAbono = $pdo->prepare("INSERT INTO abonos (proforma_id, tasa_bs_usd, monto_total_usd, nota) VALUES (?, ?, ?, ?)");
-            $stmtAbono->execute([$proforma_id, $tasa, $totalUSD, 'Pago Directo Contado']);
-            $abono_id = $pdo->lastInsertId();
-            
+        // 6. Registrar pagos (contado o abono inicial de crédito)
+        if (!empty($pagosValidos)) {
             // Buscamos sesion de caja
             $stmtSesion = $pdo->prepare("SELECT id FROM sesiones_caja WHERE usuario_id = ? AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1");
             $stmtSesion->execute([$_SESSION['user_id']]);
@@ -176,28 +323,17 @@ if ($action === 'procesar_proforma') {
             if (!$ses_id) {
                 throw new Exception("No hay caja ABIERTA. Abra su caja en 'Mi Caja' antes de cobrar.");
             }
+
+            $notaAbono = $tipo === 'FIADO' ? 'Abono Inicial Crédito' : 'Pago Directo Contado';
+            $stmtAbono = $pdo->prepare("INSERT INTO abonos (proforma_id, tasa_bs_usd, monto_total_usd, nota) VALUES (?, ?, ?, ?)");
+            $stmtAbono->execute([$proforma_id, $tasa, $suma_pagada_usd, $notaAbono]);
+            $abono_id = $pdo->lastInsertId();
             
             $stmtPDetalle = $pdo->prepare("INSERT INTO pagos_detalles (abono_id, metodo_pago_id, monto_entregado_bs, monto_entregado_usd, monto_equivalente_usd) VALUES (?, ?, ?, ?, ?)");
             $stmtCaja = $pdo->prepare("INSERT INTO movimientos_caja (sesion_caja_id, metodo_pago_id, tipo_movimiento, monto_bs, monto_usd, referencia_id, referencia_tabla) VALUES (?, ?, 'ENTRADA', ?, ?, ?, 'abonos')");
-            
-            $suma_pagada_usd = 0;
-            
-            foreach ($pagos as $pg) {
-                $m_usd = floatval($pg['monto_usd'] ?? 0);
-                $m_bs = floatval($pg['monto_bs'] ?? 0);
-                $equiv_usd = round($m_usd + ($m_bs / $tasa), 2);
-                
-                if ($equiv_usd > 0) {
-                    $stmtPDetalle->execute([$abono_id, $pg['id'], $m_bs, $m_usd, $equiv_usd]);
-                    $stmtCaja->execute([$ses_id, $pg['id'], $m_bs, $m_usd, $abono_id]);
-                    $suma_pagada_usd += $equiv_usd;
-                }
-            }
-            
-            // Tolerancia de 5 centavos por redondeos matematicos de conversión de tasa baja. 
-            // Vueltos en contra son tolerados si sobrepasa. 
-            if ($suma_pagada_usd < ($totalUSD - 0.05)) {
-                throw new Exception("El pago ingresado (\$" . $suma_pagada_usd . ") no cubre la factura (\$" . $totalUSD . ")");
+            foreach ($pagosValidos as $pg) {
+                $stmtPDetalle->execute([$abono_id, $pg['id'], $pg['monto_bs'], $pg['monto_usd'], $pg['equiv_usd']]);
+                $stmtCaja->execute([$ses_id, $pg['id'], $pg['monto_bs'], $pg['monto_usd'], $abono_id]);
             }
         }
 
@@ -208,6 +344,7 @@ if ($action === 'procesar_proforma') {
         }
         
         $pdo->commit();
+        registrarAccion($pdo, 'POS', ($tipoDoc === 'FACTURA' ? 'FACTURAR' : 'PROFORMA'), "Documento #$proforma_id creado ($tipo). Total: $totalUSD USD");
         $shareToken = generateShareLinkToken((int)$proforma_id);
         responseJson([
             'success' => true,

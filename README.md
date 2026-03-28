@@ -27,6 +27,9 @@
 - **Auditoría de Caja:** Historial transparente en cascada, clasificado por Cajero, Movimientos Operativos, Métodos de Pago y Balance de Turno (Sesiones de Caja).
 - **Historial en POS:** Desde el módulo `Ventas (Punto de Venta)` puedes abrir el historial de proformas recientes y re-emitir/consultar comprobantes.
 - **Gestión de Usuarios:** El módulo `Usuarios` permite **editar** usuarios (no solo crear/eliminar) manteniendo control RBAC.
+- **Cobro Profesional en POS:** El modal de pago permite elegir explícitamente modalidad `USD`, `Bs` o `Mixto` antes de capturar montos, mostrando siempre total y restante en ambas monedas.
+- **Crédito con Abono Inicial:** Al vender a crédito (`FIADO`), el cajero puede registrar un abono inicial en la misma operación y dejar el saldo pendiente automáticamente en USD (ancla), con estado `PENDIENTE` o `PARCIAL`.
+- **Tasa Dinámica por Día en Abonos Bs:** Cada abono en bolívares se guarda con la tasa vigente del día del pago, preservando consistencia para cobranzas en fechas distintas.
 
 ### 📱 Compartición y Movilidad (Novedades)
 - **Progressive Web App (PWA):** Sistema instalable gráficamente en dispositivos Android/iOS y Escritorios (Chrome/Edge) con soporte offline en caché (Service Workers) y Manifest dedicado.
@@ -34,6 +37,8 @@
 - **Compartición Nativa Web-Share (WhatsApp):** Motor gráfico impulsado por **HTML2Canvas** capaz de fotografiar virtualmente los comprobantes de venta desde el navegador (limpiando botones) y convertirlos en imágenes .PNG físicas de alta calidad. Envío instantáneo por *WhatsApp Native* en móviles, guardando copias perpetuas transaccionales en el servidor (`assets/tickets`).
 - **Notas Editables Al Vuelo:** Opción táctil de escritura rápida sobre las facturas Web para colocar observaciones instantáneas antes de la impresión, almacenadas mediante Caché `localStorage`.
 - **Entorno de Testing Autónomo:** Área exclusiva para Administradores que carga "Plantillas Genéricas de Prueba Guiada", permitiendo revisar y calibrar las ticketeras sin necesidad de procesar ventas ni ensuciar la Base de Datos.
+- **Catálogo Modal de Productos en POS:** Botón de catálogo con búsqueda por nombre/código y selección rápida para cargar productos al carrito.
+- **Alertas de Stock en Tiempo Real:** Notificaciones globales y en POS para `sin stock` y `stock bajo`, actualizadas por sondeo periódico.
 
 ### 🛡️ Seguridad Operacional y Arquitectura
 - **Protección de Accesos Internos:** Sistema de Roles RBAC (`Administrador` vs `Cajero` visible).

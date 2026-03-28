@@ -90,6 +90,8 @@ if ($is_demo) {
 }
 
 $tasa_dia = $proforma['tasa_dia_usd_bs'];
+$tipoDocumento = strtoupper((string)($proforma['tipo_documento'] ?? 'PROFORMA'));
+$titulo = $tipoDocumento === 'FACTURA' ? 'FACTURA' : 'NOTA DE ENTREGA';
 
 // Calculo de IVA "Al vuelo" (Dado que asumimos precios con IVA o base)
 // Simplificaremos: el subtotal es la Base, y le extraemos o le sumamos el IVA dependiendo de la contabilidad.

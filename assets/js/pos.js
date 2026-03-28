@@ -17,6 +17,20 @@ const POS = (() => {
         holdCount: $('#hold-count')
     };
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function sanitizeNumber(value, fallback = 0) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+    }
+
     // La tasa es crítica para cálculos en Bs. Evitamos NaN por selectores inexistentes.
     let tasa = parseFloat(($('#tasa-actual').text() || '').toString().replace(/,/g, ''));
     if (!isFinite(tasa) || tasa <= 0) tasa = 0;
@@ -92,7 +106,10 @@ const POS = (() => {
                 
                 const tr = `<tr>
                     <td class="text-center">${index + 1}</td>
-                    <td class="fw-bold">${item.nombre} <br><small class="text-muted">${item.codigo}</small></td>
+                    <td class="fw-bold">${escapeHtml(item.nombre)} <br>
+                        <small class="text-muted">Cód. Único: ${escapeHtml(item.codigo_interno || 'N/A')}</small><br>
+                        <small class="text-secondary" style="font-size:0.75rem;">Barras: ${escapeHtml(item.codigo || 'S/B')}</small>
+                    </td>
                     <td class="text-center">
                         <div class="input-group input-group-sm w-75 mx-auto">
                             <button class="btn btn-outline-secondary btn-minus" data-index="${index}">-</button>
@@ -100,8 +117,8 @@ const POS = (() => {
                             <button class="btn btn-outline-secondary btn-plus" data-index="${index}">+</button>
                         </div>
                     </td>
-                    <td class="text-end">$${item.precio.toFixed(2)}</td>
-                    <td class="text-end fw-bold text-primary">$${subtotal.toFixed(2)}</td>
+                    <td class="text-end">$${sanitizeNumber(item.precio).toFixed(2)}</td>
+                    <td class="text-end fw-bold text-primary">$${sanitizeNumber(subtotal).toFixed(2)}</td>
                     <td class="text-center">
                         <button class="btn btn-sm btn-danger btn-remove" data-index="${index}"><i class="fa-solid fa-trash"></i></button>
                     </td>
@@ -139,6 +156,7 @@ const POS = (() => {
             cart.push({
                 presentacion_id: producto.presentacion_id,
                 codigo: producto.codigo_barras,
+                codigo_interno: producto.codigo_interno,
                 nombre: producto.nombre_completo,
                 precio: parseFloat(producto.precio_venta_usd),
                 cantidad: 1,
@@ -161,13 +179,25 @@ const POS = (() => {
                         res.forEach(prod => {
                             let maxPresentaciones = parseInt(prod.stock_disponible_presentaciones ?? 0, 10);
                             const disabled = maxPresentaciones <= 0 ? ' disabled opacity-50' : '';
-                            elements.resultados.append(`<a href="#" class="list-group-item list-group-item-action product-result${disabled}" data-prod='${JSON.stringify(prod)}'>
+                            const safeProd = {
+                                presentacion_id: parseInt(prod.presentacion_id ?? 0, 10) || 0,
+                                codigo_barras: String(prod.codigo_barras ?? ''),
+                                codigo_interno: String(prod.codigo_interno ?? ''),
+                                nombre_completo: String(prod.nombre_completo ?? ''),
+                                precio_venta_usd: sanitizeNumber(prod.precio_venta_usd, 0),
+                                factor_conversion: sanitizeNumber(prod.factor_conversion, 1),
+                                stock_actual: sanitizeNumber(prod.stock_actual, 0),
+                                stock_disponible_presentaciones: sanitizeNumber(prod.stock_disponible_presentaciones, 0),
+                            };
+                            const $item = $(`<a href="#" class="list-group-item list-group-item-action product-result${disabled}">
                                 <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">${prod.nombre_completo}</h6>
-                                    <small class="text-primary fw-bold">$${parseFloat(prod.precio_venta_usd).toFixed(2)}</small>
+                                    <h6 class="mb-1">${escapeHtml(safeProd.nombre_completo)}</h6>
+                                    <small class="text-primary fw-bold">$${sanitizeNumber(safeProd.precio_venta_usd).toFixed(2)}</small>
                                 </div>
-                                <small>Código: ${prod.codigo_barras} | Disponible: ${maxPresentaciones} (Unds Disp: ${parseFloat(prod.stock_disponible_unidades || 0)})</small>
+                                <small>ID: <b>${escapeHtml(safeProd.codigo_interno)}</b> | Barras: <b>${escapeHtml(safeProd.codigo_barras || 'S/B')}</b> | Disponible: ${maxPresentaciones}</small>
                             </a>`);
+                            $item.data('prod', safeProd);
+                            elements.resultados.append($item);
                         });
                     } else {
                         elements.resultados.append('<div class="list-group-item text-muted">No se encontró producto en catálogo de presentaciones</div>');
@@ -191,7 +221,7 @@ const POS = (() => {
         // Escuchar el evento de escaner global
         $(document).on('barcodeScanned', function(e, code) {
             if(code.length >= 2) {
-                $.get('/ELPROFE/api/ventas.php', { action: 'buscar_producto', q: code }, function(res) {
+                $.get('/ELPROFE/api/ventas.php', { action: 'buscar_producto', q: code, reservation_id: reservationId }, function(res) {
                     if(res.length === 1) {
                         addToCart(res[0]); // Autoseleccionar si hay match exacto
                         elements.buscador.val('');
@@ -233,8 +263,66 @@ const POS = (() => {
             }
         });
         
-        // Modal Cobro Mixto Logic
+        // Modal Cobro Logic (USD / Bs / Mixto + Crédito parcial)
         let totalUSDRequerido = 0;
+        let totalBSRequerido = 0;
+        let currentPaymentIntent = 'CONTADO';
+
+        function getPagosPorModo() {
+            const modo = $('#modal-payment-mode').val();
+            const pagos = [];
+
+            if (modo === 'USD') {
+                const metodoId = parseInt($('#single-usd-metodo').val() || '0', 10);
+                const montoUsd = parseFloat($('#single-usd-monto').val()) || 0;
+                if (metodoId > 0 && montoUsd > 0) pagos.push({ id: metodoId, monto_usd: montoUsd, monto_bs: 0 });
+            } else if (modo === 'BS') {
+                const metodoId = parseInt($('#single-bs-metodo').val() || '0', 10);
+                const montoBs = parseFloat($('#single-bs-monto').val()) || 0;
+                if (metodoId > 0 && montoBs > 0) pagos.push({ id: metodoId, monto_usd: 0, monto_bs: montoBs });
+            } else if (modo === 'MIXTO') {
+                $('.metodo-row').each(function() {
+                    const id = parseInt($(this).data('id') || '0', 10);
+                    const u = parseFloat($(this).find('.input-monto-usd').val()) || 0;
+                    const b = parseFloat($(this).find('.input-monto-bs').val()) || 0;
+                    if (u > 0 || b > 0) pagos.push({ id: id, monto_usd: u, monto_bs: b });
+                });
+            }
+            return pagos;
+        }
+
+        function recalcularSaldoModal() {
+            const pagos = getPagosPorModo();
+            let pagadoUSD = 0;
+            pagos.forEach((pg) => {
+                pagadoUSD += (parseFloat(pg.monto_usd) || 0) + ((parseFloat(pg.monto_bs) || 0) / tasa);
+            });
+
+            let resta = totalUSDRequerido - pagadoUSD;
+            if (resta < 0) resta = 0;
+            const restaBs = resta * tasa;
+
+            $('#modal-resta-usd').text('$' + resta.toFixed(2));
+            $('#modal-resta-bs').text('Bs ' + restaBs.toFixed(2));
+            $('#modal-resta-usd').toggleClass('text-success', resta <= 0.05).toggleClass('text-danger', resta > 0.05);
+
+            const modo = $('#modal-payment-mode').val();
+            if (currentPaymentIntent === 'FIADO') {
+                // En crédito, el abono inicial es opcional.
+                $('#btn-procesar-mixto').prop('disabled', false);
+            } else {
+                const completo = resta <= 0.05;
+                $('#btn-procesar-mixto').prop('disabled', !(modo && completo));
+            }
+        }
+
+        function aplicarModoPago(modo) {
+            $('#panel-pago-usd, #panel-pago-bs, #panel-pago-mixto').addClass('d-none');
+            if (modo === 'USD') $('#panel-pago-usd').removeClass('d-none');
+            if (modo === 'BS') $('#panel-pago-bs').removeClass('d-none');
+            if (modo === 'MIXTO') $('#panel-pago-mixto').removeClass('d-none');
+            recalcularSaldoModal();
+        }
         
         $('#modalPago').on('show.bs.modal', function() {
             if(cart.length === 0) {
@@ -244,51 +332,85 @@ const POS = (() => {
             const tasaModal = parseFloat(($('#modal-tasa-actual').text() || '').toString().replace(/,/g, ''));
             if (isFinite(tasaModal) && tasaModal > 0) tasa = tasaModal;
             totalUSDRequerido = cart.reduce((acc, p) => acc + (p.precio * p.cantidad), 0);
+            totalBSRequerido = totalUSDRequerido * tasa;
             $('#modal-pagar-usd').text('$' + totalUSDRequerido.toFixed(2));
+            $('#modal-pagar-bs').text('Bs ' + totalBSRequerido.toFixed(2));
             $('#modal-resta-usd').text('$' + totalUSDRequerido.toFixed(2));
+            $('#modal-resta-bs').text('Bs ' + totalBSRequerido.toFixed(2));
             $('.input-monto-usd, .input-monto-bs').val('');
-            $('#btn-procesar-mixto').prop('disabled', true);
-            setTimeout(() => { $('.input-monto-usd').first().focus(); }, 500);
-        });
+            $('#single-usd-monto, #single-bs-monto').val('');
+            $('#modal-payment-mode').val('');
+            aplicarModoPago('');
 
-        // Recalcular saldo adeudado dinámicamente
-        $('.input-monto-usd, .input-monto-bs').on('keyup change', function() {
-            let pagadoUSD = 0;
-            $('.metodo-row').each(function() {
-                let u = parseFloat($(this).find('.input-monto-usd').val()) || 0;
-                let b = parseFloat($(this).find('.input-monto-bs').val()) || 0;
-                pagadoUSD += u + (b / tasa);
-            });
-            
-            let resta = totalUSDRequerido - pagadoUSD;
-            if(resta < 0) resta = 0; // Mostrar vuelto positivo si pasa, pero cobró completo
-            
-            $('#modal-resta-usd').text('$' + resta.toFixed(2));
-            $('#modal-resta-usd').toggleClass('text-success', resta <= 0.05).toggleClass('text-danger', resta > 0.05);
-            
-            // Tolerancia de 5 centavos para activar botón
-            $('#btn-procesar-mixto').prop('disabled', resta > 0.05);
-        });
+            // Crédito siempre emite PROFORMA y permite abono parcial opcional.
+            if (currentPaymentIntent === 'FIADO') {
+                $('#modal-tipo-doc').val('PROFORMA').prop('disabled', true);
+                $('#btn-procesar-mixto').html('<i class="fa-solid fa-handshake-angle"></i> Registrar Crédito');
+                $('.modal-title', this).html('<i class="fa-solid fa-handshake-angle"></i> Registrar Crédito');
+            } else {
+                $('#modal-tipo-doc').prop('disabled', false);
+                $('#btn-procesar-mixto').html('<i class="fa-solid fa-check"></i> Emitir Documento');
+                $('.modal-title', this).html('<i class="fa-solid fa-money-bill-transfer"></i> Procesar Pago');
+            }
 
-        $('#btn-procesar-mixto').click(function() {
-            let pagosMultiples = [];
             $('.metodo-row').each(function() {
-                let id = parseInt($(this).data('id'));
-                let u = parseFloat($(this).find('.input-monto-usd').val()) || 0;
-                let b = parseFloat($(this).find('.input-monto-bs').val()) || 0;
-                if(u > 0 || b > 0) {
-                    pagosMultiples.push({id: id, monto_usd: u, monto_bs: b});
+                const tipo = String($(this).data('tipo') || 'BS');
+                const $usd = $(this).find('.input-monto-usd');
+                const $bs = $(this).find('.input-monto-bs');
+                if (tipo === 'USD') {
+                    $usd.prop('disabled', false).attr('placeholder', '0.00');
+                    $bs.prop('disabled', true).val('').attr('placeholder', 'No aplica');
+                } else {
+                    $usd.prop('disabled', true).val('').attr('placeholder', 'No aplica');
+                    $bs.prop('disabled', false).attr('placeholder', '0.00');
                 }
             });
-            let docType = $('#modal-tipo-doc').val();
-            $('#modalPago').modal('hide');
-            procesarVenta('CONTADO', pagosMultiples, docType);
+            $('#btn-procesar-mixto').prop('disabled', currentPaymentIntent !== 'FIADO');
+            setTimeout(() => {
+                const $firstEnabled = $('#single-usd-monto, #single-bs-monto, .input-monto-usd:not(:disabled), .input-monto-bs:not(:disabled)').filter(':visible').first();
+                if ($firstEnabled.length) $firstEnabled.focus();
+            }, 500);
         });
+
+        $('#modal-payment-mode').on('change', function() { aplicarModoPago($(this).val()); });
+        $('.input-monto-usd, .input-monto-bs, #single-usd-monto, #single-bs-monto').on('keyup change', recalcularSaldoModal);
+
+        $('#btn-procesar-mixto').click(function() {
+            const pagosMultiples = getPagosPorModo();
+            let docType = $('#modal-tipo-doc').val() || 'PROFORMA';
+            if (currentPaymentIntent === 'FIADO') docType = 'PROFORMA';
+
+            if (currentPaymentIntent === 'CONTADO' && !$('#modal-payment-mode').val()) {
+                Swal.fire('Atención', 'Seleccione una modalidad de cobro.', 'warning');
+                return;
+            }
+
+            $('#modalPago').modal('hide');
+            procesarVenta(currentPaymentIntent, pagosMultiples, docType);
+        });
+
         // Boton Fiado Directo
         $('#btn-fiado').click(function() { 
-            let docType = $('#modal-tipo-doc').val() || 'PROFORMA';
-            procesarVenta('FIADO', [], docType); 
+            if(cart.length === 0) {
+                Swal.fire('Atención', 'El carrito está vacío', 'warning'); return;
+            }
+            Swal.fire({
+                title: 'Crédito / Fiado',
+                text: '¿Desea registrar un abono inicial ahora?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, registrar abono',
+                cancelButtonText: 'No, dejar deuda completa'
+            }).then((r) => {
+                if (r.isConfirmed) {
+                    currentPaymentIntent = 'FIADO';
+                    $('#modalPago').modal('show');
+                } else if (r.dismiss === Swal.DismissReason.cancel) {
+                    procesarVenta('FIADO', [], 'PROFORMA');
+                }
+            });
         });
+        $('#btn-cobrar-pre').on('click', function() { currentPaymentIntent = 'CONTADO'; });
         $('#btn-anular').click(function() { cart = []; renderCart(); syncReserva('ACTIVE'); elements.buscador.focus(); });
         
         // Buscar Cliente al salir del input cedula
@@ -359,16 +481,16 @@ const POS = (() => {
             // Construir HTML para seleccionar
             let htmlOptions = '';
             hold_bills.forEach((bill, i) => {
-                let totalItems = bill.cart.reduce((s, p) => s + p.cantidad, 0);
-                let totalUSD = bill.cart.reduce((s, p) => s + (p.precio * p.cantidad), 0);
-                htmlOptions += `<button type="button" class="list-group-item list-group-item-action fw-bold fs-6 py-3 select-hold-bill" data-idx="${i}">
-                    <div class="d-flex w-100 justify-content-between">
-                      <span><i class="fa-solid fa-clock text-warning"></i> ${bill.label}</span>
-                      <span class="text-primary">$${totalUSD.toFixed(2)}</span>
-                    </div>
-                    <small class="text-muted">${totalItems} artículos en carrito</small>
-                </button>`;
-            });
+                            let totalItems = bill.cart.reduce((s, p) => s + sanitizeNumber(p.cantidad, 0), 0);
+                            let totalUSD = bill.cart.reduce((s, p) => s + (sanitizeNumber(p.precio, 0) * sanitizeNumber(p.cantidad, 0)), 0);
+                            htmlOptions += `<button type="button" class="list-group-item list-group-item-action fw-bold fs-6 py-3 select-hold-bill" data-idx="${i}">
+                                <div class="d-flex w-100 justify-content-between">
+                                  <span><i class="fa-solid fa-clock text-warning"></i> ${escapeHtml(bill.label)}</span>
+                                  <span class="text-primary">$${sanitizeNumber(totalUSD).toFixed(2)}</span>
+                                </div>
+                                <small class="text-muted">${sanitizeNumber(totalItems)} artículos en carrito</small>
+                            </button>`;
+                        });
             
             Swal.fire({
                 title: 'Recuperar Ticket en Espera',
@@ -421,6 +543,92 @@ const POS = (() => {
                 }
             });
         });
+
+        // Modal catálogo de productos
+        function cargarCatalogo(q = '') {
+            $.get('/ELPROFE/api/ventas.php', { action: 'catalogo_productos', q: q, limit: 120 }, function(res) {
+                const body = $('#catalogo-body');
+                body.empty();
+                const rows = (res && res.rows) ? res.rows : [];
+                if (!rows.length) {
+                    body.append('<tr><td colspan="6" class="text-center text-muted py-4">No hay productos para mostrar</td></tr>');
+                    return;
+                }
+                rows.forEach((p) => {
+                    const disp = parseInt(p.stock_disponible_presentaciones || 0, 10);
+                    const badge = disp <= 0 ? '<span class="badge bg-danger">Sin stock</span>' : (disp < 5 ? '<span class="badge bg-warning text-dark">Stock bajo</span>' : '<span class="badge bg-success">Disponible</span>');
+                    const disabled = disp <= 0 ? 'disabled' : '';
+                    body.append(`
+                        <tr>
+                            <td>${escapeHtml(p.nombre_completo || '')}</td>
+                            <td>${escapeHtml(p.codigo_interno || '')}</td>
+                            <td>${escapeHtml(p.codigo_barras || 'S/B')}</td>
+                            <td class="text-end">$${sanitizeNumber(p.precio_venta_usd).toFixed(2)}</td>
+                            <td class="text-center">${badge} <span class="ms-1">${disp}</span></td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-primary btn-add-catalog" ${disabled}>Agregar</button>
+                            </td>
+                        </tr>
+                    `);
+                    body.find('tr:last .btn-add-catalog').data('prod', {
+                        presentacion_id: parseInt(p.presentacion_id || 0, 10),
+                        codigo_barras: String(p.codigo_barras || ''),
+                        codigo_interno: String(p.codigo_interno || ''),
+                        nombre_completo: String(p.nombre_completo || ''),
+                        precio_venta_usd: sanitizeNumber(p.precio_venta_usd, 0),
+                        factor_conversion: sanitizeNumber(p.factor_conversion, 1),
+                        stock_actual: sanitizeNumber(p.stock_actual, 0),
+                        stock_disponible_presentaciones: sanitizeNumber(p.stock_disponible_presentaciones, 0)
+                    });
+                });
+            }, 'json');
+        }
+
+        $('#btn-catalogo-productos').on('click', function() {
+            $('#catalogo-buscar').val('');
+            cargarCatalogo('');
+            new bootstrap.Modal(document.getElementById('modalCatalogoProductos')).show();
+        });
+
+        $('#catalogo-buscar').on('keyup change', function() {
+            cargarCatalogo($(this).val());
+        });
+
+        $(document).on('click', '.btn-add-catalog', function() {
+            const prod = $(this).data('prod');
+            if (prod) addToCart(prod);
+        });
+
+        // Alertas de stock en tiempo real (POS)
+        let lastStockSig = '';
+        function refrescarAlertasStockVentas() {
+            $.get('/ELPROFE/api/ventas.php', { action: 'stock_alertas' }, function(res) {
+                if (!res || !res.success) return;
+                const sinStock = parseInt(res.sin_stock || 0, 10);
+                const bajo = parseInt(res.stock_bajo || 0, 10);
+                const total = sinStock + bajo;
+                const sig = `${sinStock}-${bajo}`;
+                const alertBox = $('#ventas-stock-alert');
+                if (total > 0) {
+                    alertBox.removeClass('d-none').html(`<i class="fa-solid fa-triangle-exclamation me-2"></i> Alertas en inventario: <strong>${sinStock}</strong> sin stock y <strong>${bajo}</strong> con stock bajo.`);
+                } else {
+                    alertBox.addClass('d-none').empty();
+                }
+                if (lastStockSig && lastStockSig !== sig) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: total > 0 ? 'warning' : 'success',
+                        title: total > 0 ? `Inventario actualizado: ${sinStock} sin stock, ${bajo} bajo` : 'Inventario estabilizado',
+                        showConfirmButton: false,
+                        timer: 2200
+                    });
+                }
+                lastStockSig = sig;
+            }, 'json');
+        }
+        refrescarAlertasStockVentas();
+        setInterval(refrescarAlertasStockVentas, 30000);
     }
 
     function procesarVenta(tipo, arrayPagos = [], tipoDoc = 'PROFORMA') {
@@ -444,11 +652,25 @@ const POS = (() => {
                 const urlTicket = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}`;
                 const urlWa = `/ELPROFE/pages/ticket.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}&wa=1`;
                 const urlPdf = `/ELPROFE/pages/nota_entrega.php?id=${res.proforma_id}&share=${encodeURIComponent(shareToken)}`;
-                
-                Swal.fire({
-                    title: '¡Operación Exitosa!',
-                    html: `
-                        <p class="mb-4">Proforma registrada correctamente. ID #<strong>${res.proforma_id}</strong></p>
+                const esFiado = (tipo === 'FIADO');
+                const labelDocA4 = (String(tipoDoc || 'PROFORMA') === 'FACTURA')
+                    ? 'Ver Factura PDF (A4)'
+                    : 'Ver Nota de Entrega (A4)';
+
+                let accionesHtml = '';
+                if (esFiado) {
+                    accionesHtml = `
+                        <div class="d-grid gap-2">
+                            <a href="${urlPdf}" target="_blank" class="btn btn-warning fw-bold py-2 shadow-sm">
+                                <i class="fa-solid fa-file-lines me-2"></i> Ver Nota de Entrega (A4)
+                            </a>
+                            <a href="/ELPROFE/proformas" class="btn btn-primary fw-bold py-2 shadow-sm">
+                                <i class="fa-solid fa-hand-holding-dollar me-2"></i> Ir a Cobranza / Fiados
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    accionesHtml = `
                         <div class="d-grid gap-2">
                             <a href="${urlTicket}&print=1" target="_blank" class="btn btn-primary fw-bold py-2 shadow-sm">
                                 <i class="fa-solid fa-receipt me-2"></i> Imprimir Ticket Térmico
@@ -457,9 +679,17 @@ const POS = (() => {
                                 <i class="fa-brands fa-whatsapp me-2"></i> Compartir WhatsApp
                             </a>
                             <a href="${urlPdf}" target="_blank" class="btn btn-warning fw-bold py-2 shadow-sm">
-                                <i class="fa-solid fa-file-pdf me-2"></i> Ver Factura PDF (A4)
+                                <i class="fa-solid fa-file-pdf me-2"></i> ${labelDocA4}
                             </a>
                         </div>
+                    `;
+                }
+                
+                Swal.fire({
+                    title: '¡Operación Exitosa!',
+                    html: `
+                        <p class="mb-4">${esFiado ? 'Crédito registrado como Proforma.' : 'Proforma registrada correctamente.'} ID #<strong>${res.proforma_id}</strong></p>
+                        ${accionesHtml}
                     `,
                     icon: 'success',
                     showConfirmButton: true,

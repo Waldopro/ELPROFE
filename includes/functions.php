@@ -28,6 +28,16 @@ session_start();
 
 function checkLogin() {
     if (!isset($_SESSION['user_id'])) {
+        $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
+        if (strpos($uri, '/ELPROFE/api/') !== false) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Sesión expirada. Inicie sesión nuevamente.'
+            ]);
+            exit;
+        }
         header("Location: /ELPROFE/");
         exit;
     }
@@ -88,19 +98,48 @@ function formatMoney($amount) {
 // ==========================================
 function registrarAcceso($pdo, $usuario_id, $username, $dispositivo, $exito) {
     try {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        $ip = getClientIp();
         $ex_int = $exito ? 1 : 0;
         $stmt = $pdo->prepare("INSERT INTO bitacora_accesos (usuario_id, username_intento, ip, dispositivo, exito) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$usuario_id, $username, $ip, $dispositivo, $ex_int]);
     } catch(Exception $e) {} // Silent fail on logs
 }
 
+function getClientIp(): string {
+    $candidates = [
+        $_SERVER['HTTP_CF_CONNECTING_IP'] ?? null,
+        $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
+        $_SERVER['HTTP_X_REAL_IP'] ?? null,
+        $_SERVER['REMOTE_ADDR'] ?? null,
+    ];
+
+    foreach ($candidates as $ipRaw) {
+        if (!$ipRaw) continue;
+        $parts = explode(',', (string)$ipRaw);
+        foreach ($parts as $ip) {
+            $ip = trim($ip);
+            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
+
 function registrarAccion($pdo, $modulo, $accion, $detalle = '') {
     try {
         if (!isset($_SESSION['user_id'])) return;
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        $ip = getClientIp();
+        $payload = [
+            'detalle' => (string)$detalle,
+            'ruta' => (string)($_SERVER['REQUEST_URI'] ?? ''),
+            'metodo_http' => (string)($_SERVER['REQUEST_METHOD'] ?? ''),
+            'referer' => (string)($_SERVER['HTTP_REFERER'] ?? ''),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ];
+        $detalleJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $stmt = $pdo->prepare("INSERT INTO bitacora_acciones (usuario_id, modulo, accion, detalle, ip) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$_SESSION['user_id'], $modulo, $accion, $detalle, $ip]);
+        $stmt->execute([$_SESSION['user_id'], $modulo, $accion, $detalleJson ?: (string)$detalle, $ip]);
     } catch(Exception $e) {} // Silent fail on logs
 }
 
@@ -226,4 +265,3 @@ function validateShareLinkToken(int $proformaId, ?string $token): bool {
 
     return true;
 }
-

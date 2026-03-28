@@ -15,6 +15,17 @@ if (!defined('NO_LOGIN_REQUIRED')) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?php echo generateCsrfToken(); ?>">
     <title>ELPROFE - Sistema POS</title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme');
+          var theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+          document.documentElement.setAttribute('data-bs-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-bs-theme', 'dark');
+        }
+      })();
+    </script>
     
     <!-- Favicons -->
     <link rel="apple-touch-icon" sizes="57x57" href="/ELPROFE/assets/img/apple-icon-57x57.png">
@@ -66,7 +77,7 @@ if (!defined('NO_LOGIN_REQUIRED')) {
     <div class="container-fluid px-3">
       <div class="d-flex align-items-center justify-content-between py-2">
         <a class="elprofe-brand fw-bold d-flex align-items-center text-decoration-none" href="/ELPROFE/dashboard">
-          <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="38" height="38" class="me-2 rounded-circle bg-white p-1">
+          <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="38" height="38" class="me-2 rounded-circle p-1 elprofe-logo-shell">
           <span>ELPROFE</span>
         </a>
 
@@ -77,8 +88,13 @@ if (!defined('NO_LOGIN_REQUIRED')) {
             <small class="ms-1 text-primary fw-bold">[<?php echo getConfig('tasa_tipo', $pdo) ?: 'FIJA'; ?>]</small>
           </span>
 
+          <button class="btn btn-outline-warning position-relative d-none d-md-inline-flex" id="stock-alert-btn" title="Alertas de inventario" aria-label="Alertas de inventario">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="stock-alert-count">0</span>
+          </button>
+
           <!-- Theme Toggle -->
-          <button class="btn btn-outline-light" id="theme-toggle" title="Cambiar Tema (Alt+T)">
+          <button class="btn btn-outline-light" id="theme-toggle" title="Cambiar Tema (Alt+T)" aria-label="Cambiar tema">
             <i class="fa-solid fa-moon"></i>
           </button>
 
@@ -188,7 +204,7 @@ if (!defined('NO_LOGIN_REQUIRED')) {
       <div class="offcanvas offcanvas-start elprofe-offcanvas-menu" tabindex="-1" id="elprofeSidebarOffcanvas" aria-labelledby="elprofeSidebarOffcanvasLabel">
         <div class="offcanvas-header">
           <div class="d-flex align-items-center">
-            <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="34" height="34" class="me-2 rounded-circle bg-white p-1">
+            <img src="/ELPROFE/assets/img/logo.png" alt="Logo" width="34" height="34" class="me-2 rounded-circle p-1 elprofe-logo-shell">
             <div>
               <div id="elprofeSidebarOffcanvasLabel" class="fw-bold">ELPROFE</div>
               <div class="small text-muted">Menú</div>
@@ -201,26 +217,26 @@ if (!defined('NO_LOGIN_REQUIRED')) {
             <div class="elprofe-sidebar-inner">
               <div class="elprofe-nav-section">
                 <div class="elprofe-nav-section-title">Caja & Ventas</div>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/dashboard" class="elprofe-nav-link <?php echo $isActive('/dashboard') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/dashboard" class="elprofe-nav-link <?php echo $isActive('/dashboard') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-house"></i>
                   <span>Inicio</span>
                   <span class="elprofe-nav-shortcut ms-auto">F1</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/mi_caja" class="elprofe-nav-link <?php echo $isActive('/mi_caja') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/mi_caja" class="elprofe-nav-link <?php echo $isActive('/mi_caja') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-cash-register"></i>
                   <span>Mi Caja</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/ventas" class="elprofe-nav-link <?php echo $isActive('/ventas') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/ventas" class="elprofe-nav-link <?php echo $isActive('/ventas') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-cart-shopping"></i>
                   <span>Ventas</span>
                   <span class="elprofe-nav-shortcut ms-auto">F2</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/proformas" class="elprofe-nav-link <?php echo $isActive('/proformas') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/proformas" class="elprofe-nav-link <?php echo $isActive('/proformas') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-file-invoice"></i>
                   <span>Cobranza</span>
                   <span class="elprofe-nav-pill ms-auto">Fiados</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/clientes" class="elprofe-nav-link <?php echo $isActive('/clientes') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/clientes" class="elprofe-nav-link <?php echo $isActive('/clientes') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-users"></i>
                   <span>Clientes</span>
                 </a>
@@ -229,21 +245,21 @@ if (!defined('NO_LOGIN_REQUIRED')) {
               <?php if (isAdmin()): ?>
               <div class="elprofe-nav-section">
                 <div class="elprofe-nav-section-title">Inventario & Compras</div>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/inventario" class="elprofe-nav-link <?php echo $isActive('/inventario') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/inventario" class="elprofe-nav-link <?php echo $isActive('/inventario') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-boxes-stacked"></i>
                   <span>Inventario</span>
                   <span class="elprofe-nav-shortcut ms-auto">F3</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/categorias" class="elprofe-nav-link <?php echo $isActive('/categorias') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/categorias" class="elprofe-nav-link <?php echo $isActive('/categorias') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-tags"></i>
                   <span>Categorías</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/compras" class="elprofe-nav-link <?php echo $isActive('/compras') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/compras" class="elprofe-nav-link <?php echo $isActive('/compras') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-truck-fast"></i>
                   <span>Compras</span>
                   <span class="elprofe-nav-shortcut ms-auto">F4</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/proveedores" class="elprofe-nav-link <?php echo $isActive('/proveedores') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/proveedores" class="elprofe-nav-link <?php echo $isActive('/proveedores') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-truck-field"></i>
                   <span>Proveedores</span>
                 </a>
@@ -251,23 +267,23 @@ if (!defined('NO_LOGIN_REQUIRED')) {
 
               <div class="elprofe-nav-section">
                 <div class="elprofe-nav-section-title">Administración</div>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/reportes" class="elprofe-nav-link <?php echo $isActive('/reportes') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/reportes" class="elprofe-nav-link <?php echo $isActive('/reportes') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-chart-line"></i>
                   <span>Reportes / Libros</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/caja" class="elprofe-nav-link <?php echo $isActive('/caja') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/caja" class="elprofe-nav-link <?php echo $isActive('/caja') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-cash-register"></i>
                   <span>Auditoría Caja</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/bitacora" class="elprofe-nav-link <?php echo $isActive('/bitacora') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/bitacora" class="elprofe-nav-link <?php echo $isActive('/bitacora') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-shield-halved"></i>
                   <span>Bitácora</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/usuarios" class="elprofe-nav-link <?php echo $isActive('/usuarios') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/usuarios" class="elprofe-nav-link <?php echo $isActive('/usuarios') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-users-gear"></i>
                   <span>Usuarios</span>
                 </a>
-                <a data-bs-dismiss="offcanvas" href="/ELPROFE/configuracion" class="elprofe-nav-link <?php echo $isActive('/configuracion') ? 'active' : ''; ?>">
+                <a href="/ELPROFE/configuracion" class="elprofe-nav-link <?php echo $isActive('/configuracion') ? 'active' : ''; ?>">
                   <i class="fa-solid fa-gears"></i>
                   <span>Configuración</span>
                 </a>
