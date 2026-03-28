@@ -5,9 +5,12 @@ checkLogin();
 restrictAdmin();
 require_once '../includes/header.php';
 
+// Usamos fecha del servidor SQL para alinear filtros con timestamp real de movimientos.
+$fechaServidor = $pdo->query("SELECT DATE(NOW())")->fetchColumn() ?: date('Y-m-d');
+
 // Filtros
-$desde = $_GET['desde'] ?? date('Y-m-d');
-$hasta = $_GET['hasta'] ?? date('Y-m-d');
+$desde = $_GET['desde'] ?? $fechaServidor;
+$hasta = $_GET['hasta'] ?? $fechaServidor;
 $usuario_id = $_GET['usuario_id'] ?? '';
 $metodo_id = $_GET['metodo_id'] ?? '';
 $tipo = $_GET['tipo'] ?? '';
@@ -61,9 +64,18 @@ $stmt_mov = $pdo->prepare("
     LEFT JOIN usuarios u ON s.usuario_id = u.id
     WHERE $where_sql
     ORDER BY m.fecha DESC
+    LIMIT 1000
 ");
 $stmt_mov->execute($params);
 $movimientos = $stmt_mov->fetchAll(PDO::FETCH_ASSOC);
+
+$stmtAbonos = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM movimientos_caja m
+    WHERE $where_sql AND m.referencia_tabla = 'abonos'
+");
+$stmtAbonos->execute($params);
+$abonos_registrados = (int)$stmtAbonos->fetchColumn();
 
 // Catalogos para filtros
 $usuarios = $pdo->query("SELECT id, nombre, username FROM usuarios ORDER BY nombre")->fetchAll(PDO::FETCH_ASSOC);
@@ -73,8 +85,14 @@ $metodos = $pdo->query("SELECT id, nombre FROM metodos_pago ORDER BY nombre")->f
 
 <div class="d-flex justify-content-between align-items-center mb-4 d-print-none">
     <h2 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-file-invoice-dollar me-2"></i> Auditoría de Caja (Movimientos)</h2>
-    <div>
-        <button class="btn btn-outline-danger shadow-sm me-2" onclick="window.print()"><i class="fa-solid fa-file-pdf me-1"></i> PDF / Imprimir</button>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-success shadow-sm" href="/ELPROFE/export_caja?desde=<?php echo urlencode($desde); ?>&hasta=<?php echo urlencode($hasta); ?>&usuario_id=<?php echo urlencode($usuario_id); ?>&metodo_id=<?php echo urlencode($metodo_id); ?>&tipo=<?php echo urlencode($tipo); ?>&formato=excel" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-excel me-1"></i> Excel
+        </a>
+        <a class="btn btn-outline-danger shadow-sm" href="/ELPROFE/export_caja?desde=<?php echo urlencode($desde); ?>&hasta=<?php echo urlencode($hasta); ?>&usuario_id=<?php echo urlencode($usuario_id); ?>&metodo_id=<?php echo urlencode($metodo_id); ?>&tipo=<?php echo urlencode($tipo); ?>&formato=pdf" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-pdf me-1"></i> PDF
+        </a>
+        <button class="btn btn-outline-danger shadow-sm" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> Imprimir</button>
     </div>
 </div>
 
@@ -85,7 +103,7 @@ $metodos = $pdo->query("SELECT id, nombre FROM metodos_pago ORDER BY nombre")->f
 </div>
 
 <!-- Filtros -->
-<div class="card shadow-sm border-0 mb-4 d-print-none">
+<div class="card shadow-sm border-0 mb-3 d-print-none elprofe-soft-card">
     <div class="card-body">
         <form method="GET" action="/ELPROFE/caja" class="row g-3 align-items-end">
             <div class="col-md-2">
@@ -129,9 +147,20 @@ $metodos = $pdo->query("SELECT id, nombre FROM metodos_pago ORDER BY nombre")->f
     </div>
 </div>
 
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2 d-print-none">
+    <div class="small text-muted">
+        <i class="fa-solid fa-circle-info me-1"></i>
+        Auditoría conectada en tiempo real: los abonos y ventas aparecen sin cerrar caja.
+    </div>
+    <div class="small text-muted d-flex align-items-center gap-3">
+        <span><i class="fa-solid fa-hand-holding-dollar me-1 text-success"></i> Abonos en rango: <strong><?php echo (int)$abonos_registrados; ?></strong></span>
+        <span><i class="fa-solid fa-clock me-1"></i> Actualiza cada 20s</span>
+    </div>
+</div>
+
 <div class="row g-4 mb-4">
     <div class="col-md-6">
-        <div class="card shadow-sm border-0 h-100 bg-light">
+        <div class="card shadow-sm border-0 h-100 bg-body-tertiary elprofe-soft-card">
             <div class="card-body text-center">
                 <h6 class="text-muted text-uppercase fw-bold mb-3"><i class="fa-solid fa-sack-dollar me-2"></i> Balance Total USD Filtrado</h6>
                 <h2 class="fw-bold mb-0 <?php echo $total_usd >= 0 ? 'text-success' : 'text-danger'; ?>">$<?php echo formatMoney($total_usd); ?></h2>
@@ -139,7 +168,7 @@ $metodos = $pdo->query("SELECT id, nombre FROM metodos_pago ORDER BY nombre")->f
         </div>
     </div>
     <div class="col-md-6">
-        <div class="card shadow-sm border-0 h-100 bg-light">
+        <div class="card shadow-sm border-0 h-100 bg-body-tertiary elprofe-soft-card">
             <div class="card-body text-center">
                 <h6 class="text-muted text-uppercase fw-bold mb-3"><i class="fa-solid fa-money-bill-wave me-2"></i> Balance Total VES Filtrado</h6>
                 <h2 class="fw-bold mb-0 text-primary">Bs. <?php echo formatMoney($total_bs); ?></h2>
@@ -148,13 +177,13 @@ $metodos = $pdo->query("SELECT id, nombre FROM metodos_pago ORDER BY nombre")->f
     </div>
 </div>
 
-<div class="card shadow-sm border-0">
+<div class="card shadow-sm border-0 elprofe-soft-card">
     <div class="card-header bg-transparent border-bottom-0 pt-4 pb-0 px-4">
         <h5 class="fw-bold"><i class="fa-solid fa-list me-2"></i> Detalle de Movimientos</h5>
     </div>
     <div class="card-body p-0 mt-3">
         <div class="table-responsive">
-            <table class="table table-hover table-striped align-middle mb-0">
+            <table class="table table-hover table-striped align-middle mb-0 datatable">
                 <thead class="bg-dark text-white">
                     <tr>
                         <th class="ps-4">Fecha</th>
@@ -205,5 +234,17 @@ $metodos = $pdo->query("SELECT id, nombre FROM metodos_pago ORDER BY nombre")->f
     .bg-light { background-color: #fff !important; }
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Refresco automático para auditoría en tiempo real.
+    setInterval(function() {
+        if (document.hidden) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('_rt', Date.now().toString());
+        window.location.replace(url.toString());
+    }, 20000);
+});
+</script>
 
 <?php require_once '../includes/footer.php'; ?>

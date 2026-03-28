@@ -14,7 +14,14 @@ const POS = (() => {
         filaVacia: $('#fila-vacia'),
         clienteCedula: $('#cliente-cedula'),
         clienteNombre: $('#cliente-nombre'),
-        holdCount: $('#hold-count')
+        holdCount: $('#hold-count'),
+        btnBuscarCliente: $('#btn-buscar-cliente'),
+        btnModalClientes: $('#btn-modal-clientes'),
+        clientesBuscar: $('#clientes-buscar'),
+        clientesBody: $('#clientes-body'),
+        btnToggleClienteRapido: $('#btn-toggle-cliente-rapido'),
+        clienteRapidoWrap: $('#cliente-rapido-wrap'),
+        btnGuardarClienteRapido: $('#btn-guardar-cliente-rapido')
     };
 
     function escapeHtml(value) {
@@ -49,19 +56,99 @@ const POS = (() => {
         return cart.map((c) => ({ presentacion_id: c.presentacion_id, cantidad: c.cantidad }));
     }
 
+    function upsertReserva(items, estado = 'ACTIVE', resId = reservationId, ttl = 240) {
+        const csrf = $('meta[name="csrf-token"]').attr('content') || '';
+        return $.ajax({
+            url: '/ELPROFE/api/reservas.php',
+            type: 'POST',
+            dataType: 'json',
+            headers: { 'X-CSRF-Token': csrf },
+            data: {
+                action: 'upsert',
+                reservation_id: resId,
+                device_id: ensureDeviceId(),
+                estado: estado,
+                ttl_seconds: ttl,
+                items: JSON.stringify(items || [])
+            }
+        });
+    }
+
+    function limpiarHoldBillsInvalidos() {
+        hold_bills = (hold_bills || []).filter((b) => Array.isArray(b.cart) && b.cart.length > 0);
+    }
+
+    async function reconciliarHoldBillsServidor() {
+        limpiarHoldBillsInvalidos();
+        if (!hold_bills.length) {
+            localStorage.setItem('hold_bills', JSON.stringify([]));
+            updateHoldCount();
+            return;
+        }
+
+        // 1) Rehidratar reservas faltantes (tickets antiguos guardados sin reservation_id)
+        for (let i = 0; i < hold_bills.length; i++) {
+            const bill = hold_bills[i];
+            const rid = parseInt(bill.reservation_id || '0', 10) || 0;
+            if (rid > 0) continue;
+            const items = (bill.cart || []).map((c) => ({
+                presentacion_id: parseInt(c.presentacion_id || '0', 10) || 0,
+                cantidad: parseFloat(c.cantidad || 0) || 0
+            })).filter((x) => x.presentacion_id > 0 && x.cantidad > 0);
+            if (!items.length) continue;
+            try {
+                const res = await upsertReserva(items, 'HOLD', 0, 1800);
+                const newRid = parseInt(res?.reservation_id || '0', 10) || 0;
+                if (newRid > 0) hold_bills[i].reservation_id = newRid;
+            } catch (e) {}
+        }
+
+        // 2) Validar que las reservas HOLD sigan vivas en BD
+        const ids = hold_bills
+            .map((b) => parseInt(b.reservation_id || '0', 10) || 0)
+            .filter((v) => v > 0);
+
+        if (!ids.length) {
+            hold_bills = [];
+            localStorage.setItem('hold_bills', JSON.stringify(hold_bills));
+            updateHoldCount();
+            return;
+        }
+
+        try {
+            const csrf = $('meta[name="csrf-token"]').attr('content') || '';
+            const chk = await $.ajax({
+                url: '/ELPROFE/api/reservas.php',
+                type: 'POST',
+                dataType: 'json',
+                headers: { 'X-CSRF-Token': csrf },
+                data: {
+                    action: 'check_ids',
+                    device_id: ensureDeviceId(),
+                    ids: JSON.stringify(ids)
+                }
+            });
+            const validSet = new Set((chk?.valid_ids || []).map((x) => parseInt(x, 10)));
+            hold_bills = hold_bills.filter((b) => validSet.has(parseInt(b.reservation_id || '0', 10)));
+        } catch (e) {
+            // Si falla validación, conservamos local temporalmente para no perder tickets del usuario.
+        }
+
+        localStorage.setItem('hold_bills', JSON.stringify(hold_bills));
+        updateHoldCount();
+    }
+
     function syncReserva(estado = 'ACTIVE') {
         clearTimeout(reservaTimer);
         reservaTimer = setTimeout(() => {
             const items = cartToReservaItems();
-            const csrf = $('meta[name="csrf-token"]').attr('content') || '';
-
             if (items.length === 0) {
                 if (reservationId > 0) {
                     $.ajax({
                         url: '/ELPROFE/api/reservas.php',
                         type: 'POST',
                         dataType: 'json',
-                        headers: { 'X-CSRF-Token': csrf },
+                        headers: { 'X-CSRF-Token': $('meta[name="csrf-token"]').attr('content') || '' },
                         data: { action: 'delete', reservation_id: reservationId, device_id: ensureDeviceId() }
                     }).always(() => {
                         reservationId = 0;
@@ -71,20 +158,7 @@ const POS = (() => {
                 return;
             }
 
-            $.ajax({
-                url: '/ELPROFE/api/reservas.php',
-                type: 'POST',
-                dataType: 'json',
-                headers: { 'X-CSRF-Token': csrf },
-                data: {
-                    action: 'upsert',
-                    reservation_id: reservationId,
-                    device_id: ensureDeviceId(),
-                    estado: estado,
-                    ttl_seconds: 240,
-                    items: JSON.stringify(items)
-                }
-            }).done((res) => {
+            upsertReserva(items, estado, reservationId, 240).done((res) => {
                 if (res && res.success && res.reservation_id) {
                     reservationId = parseInt(res.reservation_id, 10) || 0;
                     localStorage.setItem('elprofe_reservation_id', String(reservationId));
@@ -166,6 +240,65 @@ const POS = (() => {
         }
         renderCart();
         syncReserva('ACTIVE');
+    }
+
+    function seleccionarCliente(cliente) {
+        currentClienteId = parseInt(cliente.id || '0', 10) || 0;
+        if (currentClienteId > 0) {
+            elements.clienteCedula.val(String(cliente.cedula_rif || ''));
+            const nombreCompleto = `${String(cliente.nombre || '').trim()} ${String(cliente.apellido || '').trim()}`.trim();
+            elements.clienteNombre.val(nombreCompleto || 'Consumidor Final').prop('disabled', true);
+        } else {
+            currentClienteId = 0;
+            elements.clienteCedula.val('V-00000000');
+            elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
+        }
+    }
+
+    function buscarClientePorDocumento() {
+        const rif = String(elements.clienteCedula.val() || '').trim();
+        if (!rif || rif === 'V-00000000') {
+            seleccionarCliente({ id: 0 });
+            return;
+        }
+        $.get('/ELPROFE/api/ventas.php', { action: 'buscar_cliente', q: rif }, function(res) {
+            if (res && res.success && res.cliente) {
+                seleccionarCliente(res.cliente);
+                return;
+            }
+            currentClienteId = 0;
+            elements.clienteNombre
+                .val('')
+                .prop('disabled', false)
+                .attr('placeholder', 'Cliente no registrado (use botón Clientes o módulo Clientes)');
+            Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: 'Cliente no registrado', showConfirmButton: false, timer: 1600 });
+        }, 'json');
+    }
+
+    function cargarClientesModal(q = '') {
+        $.get('/ELPROFE/api/ventas.php', { action: 'buscar_clientes', q: q, limit: 60 }, function(res) {
+            const body = elements.clientesBody;
+            body.empty();
+            const rows = (res && res.rows) ? res.rows : [];
+            if (!rows.length) {
+                body.append('<tr><td colspan="4" class="text-center text-muted py-4">No hay clientes para mostrar</td></tr>');
+                return;
+            }
+            rows.forEach((c) => {
+                const nombre = `${String(c.nombre || '').trim()} ${String(c.apellido || '').trim()}`.trim();
+                body.append(`
+                    <tr>
+                        <td class="fw-semibold">${escapeHtml(c.cedula_rif || '')}</td>
+                        <td>${escapeHtml(nombre)}</td>
+                        <td>${escapeHtml(c.telefono || '-')}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-primary btn-select-cliente">Seleccionar</button>
+                        </td>
+                    </tr>
+                `);
+                body.find('tr:last .btn-select-cliente').data('cliente', c);
+            });
+        }, 'json');
     }
 
     function initEvents() {
@@ -307,12 +440,27 @@ const POS = (() => {
             $('#modal-resta-usd').toggleClass('text-success', resta <= 0.05).toggleClass('text-danger', resta > 0.05);
 
             const modo = $('#modal-payment-mode').val();
+            const tipoDoc = $('#modal-tipo-doc').val() || 'PROFORMA';
+            const completo = resta <= 0.05;
+
+            const facturaRequiereCompleto = tipoDoc === 'FACTURA';
+            if (facturaRequiereCompleto) {
+                $('#modal-factura-feedback').toggleClass('d-none', completo);
+                $('#modal-factura-feedback').text(completo ? '' : 'Para emitir FACTURA el pago debe ser completo.');
+            } else {
+                $('#modal-factura-feedback').addClass('d-none');
+            }
+
             if (currentPaymentIntent === 'FIADO') {
-                // En crédito, el abono inicial es opcional.
                 $('#btn-procesar-mixto').prop('disabled', false);
             } else {
-                const completo = resta <= 0.05;
-                $('#btn-procesar-mixto').prop('disabled', !(modo && completo));
+                if (!modo) {
+                    $('#btn-procesar-mixto').prop('disabled', true);
+                } else if (facturaRequiereCompleto) {
+                    $('#btn-procesar-mixto').prop('disabled', !completo);
+                } else {
+                    $('#btn-procesar-mixto').prop('disabled', !completo && tipoDoc === 'FACTURA' ? true : false);
+                }
             }
         }
 
@@ -373,12 +521,19 @@ const POS = (() => {
         });
 
         $('#modal-payment-mode').on('change', function() { aplicarModoPago($(this).val()); });
+        $('#modal-tipo-doc').on('change', function() { recalcularSaldoModal(); });
         $('.input-monto-usd, .input-monto-bs, #single-usd-monto, #single-bs-monto').on('keyup change', recalcularSaldoModal);
 
         $('#btn-procesar-mixto').click(function() {
             const pagosMultiples = getPagosPorModo();
             let docType = $('#modal-tipo-doc').val() || 'PROFORMA';
             if (currentPaymentIntent === 'FIADO') docType = 'PROFORMA';
+
+            const resta = parseFloat($('#modal-resta-usd').text().replace('$', '')) || 0;
+            if (docType === 'FACTURA' && resta > 0.05) {
+                Swal.fire('Atención', 'La factura solo se puede emitir con pago completo. Use PROFORMA para cobros parciales.', 'warning');
+                return;
+            }
 
             if (currentPaymentIntent === 'CONTADO' && !$('#modal-payment-mode').val()) {
                 Swal.fire('Atención', 'Seleccione una modalidad de cobro.', 'warning');
@@ -413,24 +568,74 @@ const POS = (() => {
         $('#btn-cobrar-pre').on('click', function() { currentPaymentIntent = 'CONTADO'; });
         $('#btn-anular').click(function() { cart = []; renderCart(); syncReserva('ACTIVE'); elements.buscador.focus(); });
         
-        // Buscar Cliente al salir del input cedula
-        elements.clienteCedula.on('blur', function() {
-            const rif = $(this).val();
-            if(rif && rif !== 'V-00000000') {
-                $.get('/ELPROFE/api/ventas.php', {action: 'buscar_cliente', q: rif}, function(res) {
-                    if(res.success) {
-                        currentClienteId = res.cliente.id;
-                        elements.clienteNombre.val(res.cliente.nombre + ' ' + res.cliente.apellido).prop('disabled', true);
-                    } else {
-                        currentClienteId = 0;
-                        elements.clienteNombre.val('').prop('disabled', false).attr('placeholder', 'Cliente Nuevo (Regístrelo en Módulo Cliente)');
-                        Swal.fire({toast: true, position: 'top-end', icon: 'warning', title: 'Cliente no registrado', showConfirmButton: false, timer: 1500});
-                    }
-                });
-            } else {
-                currentClienteId = 0;
-                elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
+        // Buscar cliente por cédula/rif (input + botón + enter)
+        elements.clienteCedula.on('blur', buscarClientePorDocumento);
+        elements.clienteCedula.on('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                buscarClientePorDocumento();
             }
+        });
+        elements.btnBuscarCliente.on('click', buscarClientePorDocumento);
+
+        // Selector rápido de clientes en modal
+        elements.btnModalClientes.on('click', function() {
+            elements.clientesBuscar.val('');
+            cargarClientesModal('');
+            new bootstrap.Modal(document.getElementById('modalClientesRapido')).show();
+        });
+        elements.clientesBuscar.on('keyup change', function() {
+            cargarClientesModal($(this).val());
+        });
+        $(document).on('click', '.btn-select-cliente', function() {
+            const cli = $(this).data('cliente');
+            if (!cli) return;
+            seleccionarCliente(cli);
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalClientesRapido'));
+            if (modal) modal.hide();
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Cliente seleccionado', showConfirmButton: false, timer: 1300 });
+        });
+
+        elements.btnToggleClienteRapido.on('click', function() {
+            elements.clienteRapidoWrap.toggleClass('d-none');
+            if (!elements.clienteRapidoWrap.hasClass('d-none')) {
+                $('#cliente-rapido-cedula').trigger('focus');
+            }
+        });
+
+        elements.btnGuardarClienteRapido.on('click', function() {
+            const cedula = String($('#cliente-rapido-cedula').val() || '').trim();
+            const nombre = String($('#cliente-rapido-nombre').val() || '').trim();
+            const apellido = String($('#cliente-rapido-apellido').val() || '').trim();
+            const telefono = String($('#cliente-rapido-telefono').val() || '').trim();
+
+            if (!cedula || !nombre) {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: 'Cédula/RIF y nombre son obligatorios', showConfirmButton: false, timer: 1800 });
+                return;
+            }
+
+            $.post('/ELPROFE/api/ventas.php', {
+                action: 'crear_cliente_rapido',
+                cedula_rif: cedula,
+                nombre: nombre,
+                apellido: apellido,
+                telefono: telefono
+            }, function(res) {
+                if (!res || !res.success || !res.cliente) {
+                    Swal.fire('Error', (res && res.message) ? res.message : 'No se pudo crear el cliente.', 'error');
+                    return;
+                }
+                seleccionarCliente(res.cliente);
+                $('#cliente-rapido-cedula, #cliente-rapido-nombre, #cliente-rapido-apellido, #cliente-rapido-telefono').val('');
+                elements.clienteRapidoWrap.addClass('d-none');
+                cargarClientesModal(elements.clientesBuscar.val());
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalClientesRapido'));
+                if (modal) modal.hide();
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.message || 'Cliente creado y seleccionado', showConfirmButton: false, timer: 1500 });
+            }, 'json').fail(function(xhr) {
+                const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Error al crear cliente.';
+                Swal.fire('Error', msg, 'error');
+            });
         });
 
         // --- EVENTOS FACTURAS EN ESPERA (HOLD BILLS) ---
@@ -439,37 +644,47 @@ const POS = (() => {
                 Swal.fire('Atención', 'El carrito está vacío, no hay nada que poner en espera.', 'warning');
                 return;
             }
-            
+
+            const cartSnapshot = JSON.parse(JSON.stringify(cart));
+            const resIdActual = reservationId;
             const ticketName = 'Cliente: ' + elements.clienteNombre.val() + ' | ' + new Date().toLocaleTimeString();
-            
-            hold_bills.push({
-                id: Date.now(),
-                label: ticketName,
-                reservation_id: reservationId,
-                cart: JSON.parse(JSON.stringify(cart)),
-                clienteId: currentClienteId,
-                clienteCedula: elements.clienteCedula.val(),
-                clienteNombre: elements.clienteNombre.val()
-            });
-            
-            localStorage.setItem('hold_bills', JSON.stringify(hold_bills));
-            updateHoldCount();
-            
-            // Limpiar
-            cart = [];
-            // Mantener reserva como HOLD y resetear la actual
-            if (reservationId > 0) {
-                syncReserva('HOLD');
-                reservationId = 0;
-                localStorage.setItem('elprofe_reservation_id', '0');
-            }
-            currentClienteId = 0;
-            elements.clienteCedula.val('V-00000000');
-            elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
-            renderCart();
-            elements.buscador.focus();
-            
-            Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Ticket guardado en espera', showConfirmButton: false, timer: 2000});
+
+            // Primero persistimos reserva HOLD con los items actuales.
+            upsertReserva(cartSnapshot.map((c) => ({ presentacion_id: c.presentacion_id, cantidad: c.cantidad })), 'HOLD', resIdActual, 1800)
+                .done((res) => {
+                    const holdReservationId = parseInt(res?.reservation_id || resIdActual || 0, 10) || 0;
+                    if (holdReservationId <= 0) {
+                        Swal.fire('Error', 'No se pudo reservar stock en servidor. Intente nuevamente.', 'error');
+                        return;
+                    }
+                    hold_bills.push({
+                        id: Date.now(),
+                        label: ticketName,
+                        reservation_id: holdReservationId,
+                        cart: cartSnapshot,
+                        clienteId: currentClienteId,
+                        clienteCedula: elements.clienteCedula.val(),
+                        clienteNombre: elements.clienteNombre.val()
+                    });
+
+                    localStorage.setItem('hold_bills', JSON.stringify(hold_bills));
+                    updateHoldCount();
+
+                    // Limpiar sesión de venta actual sin tocar la reserva HOLD recién creada.
+                    cart = [];
+                    reservationId = 0;
+                    localStorage.setItem('elprofe_reservation_id', '0');
+                    currentClienteId = 0;
+                    elements.clienteCedula.val('V-00000000');
+                    elements.clienteNombre.val('Consumidor Final').prop('disabled', false);
+                    renderCart();
+                    elements.buscador.focus();
+
+                    Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Ticket guardado en espera', showConfirmButton: false, timer: 2000});
+                })
+                .fail(() => {
+                    Swal.fire('Error', 'No se pudo enviar el ticket a espera. Intente nuevamente.', 'error');
+                });
         });
 
         $('#btn-restore-hold').click(function() {
@@ -546,7 +761,7 @@ const POS = (() => {
 
         // Modal catálogo de productos
         function cargarCatalogo(q = '') {
-            $.get('/ELPROFE/api/ventas.php', { action: 'catalogo_productos', q: q, limit: 120 }, function(res) {
+            $.get('/ELPROFE/api/ventas.php', { action: 'catalogo_productos', q: q, limit: 120, reservation_id: reservationId }, function(res) {
                 const body = $('#catalogo-body');
                 body.empty();
                 const rows = (res && res.rows) ? res.rows : [];
@@ -712,7 +927,7 @@ const POS = (() => {
         });
     }
 
-    return { init: () => { ensureDeviceId(); renderCart(); updateHoldCount(); initEvents(); elements.buscador.focus(); if (cart.length > 0) syncReserva('ACTIVE'); } };
+    return { init: async () => { ensureDeviceId(); renderCart(); updateHoldCount(); initEvents(); await reconciliarHoldBillsServidor(); elements.buscador.focus(); if (cart.length > 0) syncReserva('ACTIVE'); } };
 })();
 
 $(document).ready(function() { POS.init(); });

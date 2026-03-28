@@ -3,6 +3,9 @@
     --primary-color: #002157; /* Azul Marino del Logo */
     --accent-color: #d3101e;  /* Rojo del Logo */
     --hover-color: #003380;
+    --elprofe-surface: #ffffff;
+    --elprofe-surface-2: #f5f7fa;
+    --elprofe-border: #e2e8f0;
 }
 
 body {
@@ -10,40 +13,63 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+[data-bs-theme="light"] body {
+    color: #1f2937;
+}
+
+[data-bs-theme="dark"] body {
+    color: #e5e7eb;
+}
+
 /* Navbar Personalizada */
 .navbar.bg-primary {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%) !important;
+    background-color: var(--primary-color) !important;
     border-bottom: 2px solid var(--accent-color);
 }
 
-/* Cards Premium */
 .card {
     border: none;
     border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background-color: var(--bs-card-bg);
 }
 
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Datatables or Tables */
 .table {
     border-collapse: separate;
     border-spacing: 0;
+    width: 100% !important;
 }
+
 .table thead th {
     border-bottom: 2px solid var(--primary-color);
     background-color: var(--bs-tertiary-bg);
     color: var(--bs-heading-color);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    padding: 12px 15px;
 }
-.table tbody tr {
-    transition: background-color 0.1s ease;
+
+.table tbody td {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
 }
-.table tbody tr:hover {
-    background-color: var(--bs-secondary-bg);
+
+/* Responsividad de tablas mobile-first */
+@media (max-width: 768px) {
+    .table-responsive {
+        border: 0;
+    }
+    .table thead {
+        display: none; /* Opcional: esconder cabeceras en movil si se usa vista de tarjeta */
+    }
+}
+
+.action-btns .btn {
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
 }
 
 /* Botones y Formularios Redondeados */
@@ -70,16 +96,165 @@ body {
     color: white;
 }
 
-/* Fix para modo oscuro */
+.btn-outline-barcode {
+    border-color: #334155;
+    color: #0f172a;
+    background: #f8fafc;
+    box-shadow: inset 0 0 0 1px #334155;
+}
+
+.btn-outline-barcode:hover {
+    border-color: #1e3a8a;
+    color: #ffffff;
+    background: #1e40af;
+    box-shadow: none;
+}
+
+.btn-outline-secondary.btn-outline-barcode {
+    border-color: #334155;
+    color: #0f172a;
+    background: #f8fafc;
+}
+
+[data-bs-theme="dark"] .btn-outline-barcode,
+[data-bs-theme="dark"] .btn-outline-secondary.btn-outline-barcode {
+    border-color: #93c5fd;
+    color: #e2e8f0;
+    background: #1d2938;
+}
+
+[data-bs-theme="dark"] .btn-outline-barcode:hover,
+[data-bs-theme="dark"] .btn-outline-secondary.btn-outline-barcode:hover {
+    border-color: #60a5fa;
+    color: #ffffff;
+    background: #1e3a8a;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+    color: #e2e8f0;
+    border-color: #6b7280;
+    background-color: #1f2937;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary:hover {
+    color: #ffffff;
+    border-color: #60a5fa;
+    background-color: #1e3a8a;
+}
+
+/* Forzar Modo Oscuro Global */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #151521;
+    --bs-card-bg: #1e1e2d;
+    --bs-tertiary-bg: #252538;
+    --elprofe-surface: #1e1e2d;
+    --elprofe-surface-2: #252538;
+    --elprofe-border: rgba(255, 255, 255, 0.12);
+}
+
+[data-bs-theme="light"] {
+    --bs-body-bg: #eef2f7;
+    --bs-card-bg: #ffffff;
+    --bs-tertiary-bg: #f7f9fc;
+    --elprofe-surface: #ffffff;
+    --elprofe-surface-2: #f7f9fc;
+    --elprofe-border: #dde5ef;
+}
+
+.badge-inventario {
+    background: #fed7aa;
+    color: #1f2937;
+    border-color: #f59e0b;
+    font-weight: 700;
+}
+
+.badge-pos {
+    background: #34d399;
+    color: #0f172a;
+    border-color: #10b981;
+    font-weight: 700;
+}
+
+.badge-sistema {
+    background: #6b7280;
+    color: #ffffff;
+    border-color: #4b5563;
+    font-weight: 700;
+}
+
+[data-bs-theme="dark"] .badge-inventario {
+    background: #f59e0b;
+    color: #0f172a;
+    border-color: #fbbf24;
+}
+
+[data-bs-theme="dark"] .badge-pos {
+    background: #10b981;
+    color: #0f172a;
+    border-color: #34d399;
+}
+
+[data-bs-theme="dark"] .badge-sistema {
+    background: #374151;
+    color: #f3f4f6;
+    border-color: #6b7280;
+}
+
 [data-bs-theme="dark"] .card {
-    background-color: #1e1e2d;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    background-color: var(--bs-card-bg) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
-[data-bs-theme="dark"] body {
-    background-color: #151521;
-}
+
 [data-bs-theme="dark"] .table {
     color: #e4e6eb;
+}
+
+[data-bs-theme="dark"] .modal-content {
+    background-color: #1e1e2d;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-bs-theme="dark"] .form-control, [data-bs-theme="dark"] .form-select {
+    background-color: #252538;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+[data-bs-theme="dark"] .form-control::placeholder {
+    color: #9ca3af;
+}
+
+[data-bs-theme="light"] .form-control,
+[data-bs-theme="light"] .form-select {
+    background-color: #ffffff;
+    border-color: #d0d8e2;
+    color: #1f2937;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: #2a2e40 !important;
+    color: #e5e7eb !important;
+}
+
+[data-bs-theme="dark"] .bg-white {
+    background-color: #1f2333 !important;
+    color: #e5e7eb !important;
+}
+
+[data-bs-theme="dark"] .text-dark {
+    color: #e5e7eb !important;
+}
+
+[data-bs-theme="dark"] .table thead.bg-light th,
+[data-bs-theme="dark"] .table thead.bg-light td {
+    background-color: #24283a !important;
+    color: #e5e7eb !important;
+}
+
+[data-bs-theme="dark"] .input-group-text.bg-light {
+    background-color: #2a2e40 !important;
+    color: #cbd5e1 !important;
+    border-color: #3a3f54 !important;
 }
 
 /* Utilidades para Punto de Venta */
@@ -102,7 +277,7 @@ body {
 }
 
 .elprofe-topbar {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%) !important;
+    background: var(--primary-color) !important;
     border-bottom: 2px solid var(--accent-color);
     position: sticky;
     top: 0;
@@ -117,6 +292,15 @@ body {
 .elprofe-topbar .elprofe-brand img {
     width: 44px !important;
     height: 44px !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+}
+
+.elprofe-logo-shell {
+    background-color: #ffffff !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    mix-blend-mode: normal !important;
 }
 
 .elprofe-topbar .elprofe-brand span {
@@ -132,6 +316,17 @@ body {
     border-color: rgba(255, 255, 255, 0.9);
 }
 
+.elprofe-topbar-icon-btn {
+    width: 44px;
+    height: 38px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border-width: 1px;
+}
+
 .elprofe-body {
     flex: 1;
     min-height: 0;
@@ -139,9 +334,13 @@ body {
 }
 
 .elprofe-app {
-    background: radial-gradient(circle at 20% 0%, rgba(211, 16, 30, 0.16) 0%, rgba(0, 0, 0, 0) 35%),
-                radial-gradient(circle at 80% 10%, rgba(77, 163, 255, 0.14) 0%, rgba(0, 0, 0, 0) 40%),
-                linear-gradient(180deg, rgba(0, 0, 0, 0.10) 0%, rgba(0, 0, 0, 0.18) 100%);
+    background-color: #f4f6f9;
+}
+[data-bs-theme="dark"] .elprofe-app {
+    background-color: #121212;
+}
+[data-bs-theme="light"] .elprofe-app {
+    background: linear-gradient(180deg, #eef2f7 0%, #e8edf5 100%);
 }
 
 .elprofe-body > main.container-fluid {
@@ -150,18 +349,75 @@ body {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 18px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--elprofe-border);
 }
 
 .elprofe-sidebar {
     width: 270px;
     height: 100%;
-    background: linear-gradient(180deg, rgba(0, 33, 87, 0.98) 0%, rgba(211, 16, 30, 0.98) 100%);
+    background-color: #001538;
     padding: 0.95rem 0.7rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.10);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
     overflow-y: hidden;
     flex: 0 0 auto;
     display: flex;
     flex-direction: column;
+}
+
+[data-bs-theme="light"] .elprofe-sidebar {
+    background: #f7f9fc;
+    border-right: 1px solid #d8e0ea;
+}
+
+[data-bs-theme="light"] .elprofe-nav-section-title {
+    color: #64748b;
+}
+
+[data-bs-theme="light"] .elprofe-nav-link {
+    color: #334155;
+}
+
+[data-bs-theme="light"] .elprofe-nav-link:hover {
+    background: #e8edf5;
+    color: #0f172a;
+}
+
+[data-bs-theme="light"] .elprofe-nav-link.active {
+    background: #dbe6f7;
+    box-shadow: inset 0 0 0 1px #bfd2f0;
+    color: #0f172a;
+}
+
+[data-bs-theme="light"] .elprofe-nav-shortcut,
+[data-bs-theme="light"] .elprofe-nav-pill {
+    background: #e7edf8;
+    border-color: #ccd8eb;
+    color: #334155;
+}
+
+/* Tabla mejorada */
+.table-enhancer-controls,
+.table-enhancer-footer {
+    background: var(--elprofe-surface-2);
+    border: 1px solid var(--elprofe-border);
+    border-radius: 10px;
+}
+
+.table-enhancer-controls {
+    margin-bottom: 8px;
+}
+
+.table-enhancer-footer {
+    margin-top: 8px;
+}
+
+th.te-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+th.te-sortable:hover {
+    filter: brightness(0.96);
 }
 
 .elprofe-sidebar-inner {
@@ -240,7 +496,7 @@ body {
 
 /* Offcanvas móvil: hereda estilos del sidebar */
 .elprofe-offcanvas-menu .offcanvas-header {
-    background: linear-gradient(135deg, rgba(0, 33, 87, 0.98) 0%, rgba(211, 16, 30, 0.98) 100%) !important;
+    background-color: #001538 !important;
     color: #fff;
 }
 
@@ -256,6 +512,20 @@ body {
 
 [data-bs-theme="dark"] .elprofe-topbar .btn-outline-light {
     color: #fff;
+}
+
+#theme-toggle {
+    min-width: 42px;
+    transition: transform 0.15s ease;
+}
+
+#theme-toggle:hover {
+    transform: translateY(-1px);
+}
+
+[data-bs-theme="light"] #theme-toggle {
+    border-color: rgba(255, 255, 255, 0.8);
+    color: #ffffff;
 }
 
 @media (max-width: 576px) {
@@ -276,10 +546,334 @@ body {
     width: 140px !important;
     height: 140px !important;
     object-fit: cover;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+}
+
+.elprofe-login-wrap {
+    position: relative;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    overflow: hidden;
+}
+
+.elprofe-login-bg-shape {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(8px);
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.elprofe-login-bg-shape-a {
+    width: 280px;
+    height: 280px;
+    top: -80px;
+    left: -60px;
+    background: radial-gradient(circle, rgba(0, 33, 87, 0.85) 0%, rgba(0, 33, 87, 0) 70%);
+}
+
+.elprofe-login-bg-shape-b {
+    width: 340px;
+    height: 340px;
+    bottom: -120px;
+    right: -80px;
+    background: radial-gradient(circle, rgba(211, 16, 30, 0.55) 0%, rgba(211, 16, 30, 0) 72%);
+}
+
+.elprofe-login-side {
+    border: 1px solid var(--elprofe-border);
+    border-radius: 20px;
+    background: linear-gradient(160deg, rgba(2, 14, 48, 0.92) 0%, rgba(4, 30, 81, 0.85) 100%);
+    color: #e5e7eb;
+    box-shadow: 0 22px 45px rgba(0, 0, 0, 0.28);
+}
+
+.elprofe-login-side-inner {
+    padding: 2.25rem;
+}
+
+.elprofe-login-bullet {
+    padding: 0.7rem 0.85rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-weight: 600;
+}
+
+.elprofe-login-bullet i {
+    color: #7dd3fc;
+    margin-right: 0.45rem;
+}
+
+.elprofe-login-card {
+    max-width: 460px;
+    border: 1px solid var(--elprofe-border);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--bs-card-bg) 92%, #ffffff 8%);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
+}
+
+[data-bs-theme="dark"] .elprofe-login-card .input-group-text,
+[data-bs-theme="dark"] .elprofe-login-card .form-control {
+    background-color: #262b40;
+    border-color: #3b445f;
+}
+
+[data-bs-theme="light"] .elprofe-login-side {
+    background: linear-gradient(160deg, #12356f 0%, #0d2c60 100%);
+}
+
+/* UI profesional para POS y paneles */
+.elprofe-panel-title {
+    letter-spacing: 0.01em;
+    font-weight: 800;
+}
+
+.elprofe-soft-card {
+    border: 1px solid var(--elprofe-border);
+    background: linear-gradient(180deg, var(--bs-card-bg) 0%, var(--elprofe-surface-2) 100%);
+    box-shadow: 0 12px 30px rgba(2, 14, 48, 0.08);
+}
+
+[data-bs-theme="dark"] .elprofe-hero {
+    background: linear-gradient(135deg, rgba(0, 33, 87, 0.25) 0%, rgba(17, 24, 39, 0.55) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+}
+
+[data-bs-theme="light"] .elprofe-hero {
+    background: linear-gradient(135deg, rgba(219, 234, 254, 0.8) 0%, rgba(241, 245, 249, 0.95) 100%);
+    border: 1px solid #c8d7eb;
+}
+
+.elprofe-hero {
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+}
+
+/* Footer profesional y uniforme */
+.elprofe-footer {
+    border-top: 1px solid var(--elprofe-border);
+    background: color-mix(in srgb, var(--bs-body-bg) 72%, #0b1227 28%);
+}
+
+[data-bs-theme="light"] .elprofe-footer {
+    background: #e9eef6;
+}
+
+.elprofe-footer-copy {
+    color: var(--bs-secondary-color);
+}
+
+.elprofe-footer-shortcuts {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    align-items: center;
+    color: var(--bs-secondary-color);
+    font-size: 0.82rem;
+}
+
+.elprofe-footer-shortcuts kbd {
+    border-radius: 7px;
+    padding: 0.16rem 0.38rem;
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    .elprofe-footer-shortcuts {
+        font-size: 0.76rem;
+    }
+}
+
+[data-bs-theme="dark"] .elprofe-soft-card {
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+
+.elprofe-kpi {
+    border-radius: 14px;
+    border: 1px solid var(--elprofe-border);
+    background: var(--bs-card-bg);
+    padding: 0.9rem 1rem;
 }
 @media (max-width: 576px) {
     .elprofe-login-logo {
-        width: 160px !important;
-        height: 160px !important;
+        width: 120px !important;
+        height: 120px !important;
     }
+    .elprofe-login-wrap {
+        padding: 1rem 0.5rem;
+    }
+    .elprofe-login-card {
+        border-radius: 16px;
+    }
+}
+
+/* Enlaces del contenido: visual limpio sin subrayado intrusivo */
+.container-fluid a:not(.btn):not(.elprofe-nav-link):not(.dropdown-item):not(.page-link),
+.container a:not(.btn):not(.elprofe-nav-link):not(.dropdown-item):not(.page-link) {
+    text-decoration: none;
+}
+
+.container-fluid a:not(.btn):not(.elprofe-nav-link):not(.dropdown-item):not(.page-link):hover,
+.container a:not(.btn):not(.elprofe-nav-link):not(.dropdown-item):not(.page-link):hover {
+    text-decoration: none;
+}
+
+/* SweetAlert coherente con modo claro/oscuro */
+[data-bs-theme="dark"] .swal2-popup {
+    background: #1f2333 !important;
+    color: #e5e7eb !important;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+[data-bs-theme="dark"] .swal2-title,
+[data-bs-theme="dark"] .swal2-html-container {
+    color: #e5e7eb !important;
+}
+
+[data-bs-theme="dark"] .swal2-popup .list-group-item {
+    background-color: #252a3d !important;
+    color: #e5e7eb !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .swal2-popup .text-muted {
+    color: #aab2c5 !important;
+}
+
+[data-bs-theme="light"] .swal2-popup {
+    background: #ffffff !important;
+    color: #1f2937 !important;
+}
+
+/* Centro de notificaciones */
+.elprofe-notify-menu {
+    width: min(420px, 92vw);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--elprofe-border);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.18);
+}
+
+.elprofe-notify-header {
+    background: var(--elprofe-surface-2);
+}
+
+.elprofe-notify-list {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.elprofe-notify-item {
+    display: block;
+    padding: 0.72rem 0.9rem;
+    border-bottom: 1px solid var(--elprofe-border);
+    text-decoration: none;
+    color: inherit;
+}
+
+.elprofe-notify-item:hover {
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.elprofe-notify-item.is-new {
+    background: color-mix(in srgb, var(--bs-body-bg) 84%, #1d4ed8 16%);
+}
+
+.elprofe-notify-item:last-child {
+    border-bottom: none;
+}
+
+.elprofe-notify-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 0.35rem;
+    border-radius: 999px;
+    background: #22c55e;
+}
+
+.elprofe-notify-tag {
+    font-size: 0.68rem;
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+}
+
+.elprofe-notify-tag.critico {
+    background: rgba(220, 38, 38, 0.18);
+    color: #dc2626;
+}
+
+.elprofe-notify-tag.alerta {
+    background: rgba(217, 119, 6, 0.18);
+    color: #d97706;
+}
+
+.elprofe-notify-tag.info {
+    background: rgba(37, 99, 235, 0.16);
+    color: #2563eb;
+}
+
+#notifications-btn {
+    min-width: 44px;
+}
+
+#notifications-btn .fa-bell {
+    color: inherit;
+}
+
+[data-bs-theme="dark"] #notifications-btn {
+    border-color: rgba(255, 255, 255, 0.7);
+    background: transparent;
+}
+
+[data-bs-theme="dark"] #notifications-btn:hover,
+[data-bs-theme="dark"] #notifications-btn:focus,
+[data-bs-theme="dark"] #notifications-btn.show {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.9);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+[data-bs-theme="dark"] #notifications-btn.show .fa-bell,
+[data-bs-theme="dark"] #notifications-btn:hover .fa-bell {
+    color: #ffffff;
+}
+
+[data-bs-theme="light"] #notifications-btn {
+    border-color: rgba(255, 255, 255, 0.8);
+    color: #ffffff;
+    background: transparent;
+}
+
+[data-bs-theme="light"] #notifications-btn .fa-bell {
+    color: inherit;
+}
+
+#notifications-refresh,
+#notifications-mark-read {
+    line-height: 1.1;
+}
+
+/* Buscador POS con dropdown profesional */
+#resultado-busqueda {
+    border: 1px solid var(--elprofe-border);
+    border-radius: 0.9rem;
+    background: var(--bs-card-bg);
+    overflow: hidden;
+}
+
+#resultado-busqueda .list-group-item {
+    border-left: 0;
+    border-right: 0;
+    border-color: var(--elprofe-border);
+    background: transparent;
+}
+
+#resultado-busqueda .list-group-item:hover {
+    background: rgba(59, 130, 246, 0.1);
 }

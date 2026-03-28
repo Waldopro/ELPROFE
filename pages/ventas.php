@@ -38,9 +38,14 @@ $proformasHist = $stmtProfs->fetchAll();
 require_once '../includes/header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold mb-0 text-primary elprofe-panel-title"><i class="fa-solid fa-cart-shopping me-2"></i> Punto de Venta</h2>
+<div class="d-flex justify-content-between align-items-center mb-4 elprofe-hero">
     <div>
+        <h2 class="fw-bold mb-0 text-primary elprofe-panel-title"><i class="fa-solid fa-cart-shopping me-2"></i> Punto de Venta</h2>
+        <small class="text-muted">Flujo rápido para ventas de contado, crédito y tickets en espera.</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge text-bg-primary-subtle border border-primary-subtle px-2 py-2">F2 Buscar</span>
+        <span class="badge text-bg-success-subtle border border-success-subtle px-2 py-2">F9 Cobrar</span>
         <button type="button" class="btn btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#modalHistorialProformas">
             <i class="fa-solid fa-clock-rotate-left"></i> Historial (Proformas)
         </button>
@@ -65,7 +70,7 @@ require_once '../includes/header.php';
                 <ul id="resultado-busqueda" class="list-group position-absolute shadow-sm" style="z-index: 1040; display: none; max-height: 300px; overflow-y: auto; left: 1.5rem; right: 1.5rem; top: calc(100% - 0.2rem);"></ul>
             </div>
             
-            <div class="card-body p-4 p-0 mt-3">
+            <div class="card-body p-4 pt-3">
                 <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
                     <table class="table table-hover align-middle mb-0" id="tabla-venta">
                         <thead class="sticky-top bg-light">
@@ -107,10 +112,18 @@ require_once '../includes/header.php';
         
         <div class="card shadow-sm border-0 elprofe-soft-card">
             <div class="card-body p-4">
-                <h5 class="fw-bold mb-3">Datos del Cliente</h5>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h5 class="fw-bold mb-0">Datos del Cliente</h5>
+                    <button class="btn btn-sm btn-outline-primary" type="button" id="btn-modal-clientes">
+                        <i class="fa-solid fa-users-viewfinder me-1"></i> Clientes
+                    </button>
+                </div>
+                <small class="text-muted d-block mb-3">Puedes escribir Cédula/RIF y buscar, o abrir el listado rápido.</small>
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control bg-light border-0" id="cliente-cedula" placeholder="Cédula / RIF" value="V-00000000">
-                    <button class="btn btn-outline-secondary" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
+                    <input type="text" class="form-control bg-light border-0" id="cliente-cedula" placeholder="Cédula / RIF (Enter para buscar)" value="V-00000000">
+                    <button class="btn btn-outline-secondary" type="button" id="btn-buscar-cliente" title="Buscar cliente">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
                 </div>
                 <input type="text" class="form-control bg-light border-0 mb-4" id="cliente-nombre" placeholder="Nombre (o Consumidor Final)" value="Consumidor Final">
                 
@@ -190,6 +203,7 @@ require_once '../includes/header.php';
                   <option value="FACTURA">🧾 Factura Fiscal (Exige Correlativo)</option>
                   <option value="PROFORMA" selected>📄 Nota de Entrega / Control Interno</option>
               </select>
+              <div id="modal-factura-feedback" class="form-text text-danger mt-1 d-none" style="font-size:0.85rem;"></div>
           </div>
 
           <div id="panel-pago-usd" class="d-none">
@@ -306,6 +320,73 @@ require_once '../includes/header.php';
             </thead>
             <tbody id="catalogo-body">
               <tr><td colspan="6" class="text-center text-muted py-4">Cargando catálogo...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal catálogo clientes -->
+<div class="modal fade" id="modalClientesRapido" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fa-solid fa-users me-2"></i> Seleccionar Cliente</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex flex-wrap gap-2 justify-content-between mb-3">
+          <div class="input-group" style="max-width: 520px;">
+            <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" class="form-control" id="clientes-buscar" placeholder="Buscar por cédula, RIF o nombre">
+          </div>
+          <button class="btn btn-outline-success" type="button" id="btn-toggle-cliente-rapido">
+            <i class="fa-solid fa-user-plus me-1"></i> Crear Cliente Rápido
+          </button>
+        </div>
+
+        <div class="card border-0 bg-light mb-3 d-none" id="cliente-rapido-wrap">
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Cédula / RIF *</label>
+                <input type="text" class="form-control" id="cliente-rapido-cedula" maxlength="20">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Nombre *</label>
+                <input type="text" class="form-control" id="cliente-rapido-nombre" maxlength="100">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Apellido</label>
+                <input type="text" class="form-control" id="cliente-rapido-apellido" maxlength="100">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Teléfono</label>
+                <input type="text" class="form-control" id="cliente-rapido-telefono" maxlength="20">
+              </div>
+              <div class="col-12 text-end">
+                <button type="button" class="btn btn-success" id="btn-guardar-cliente-rapido">
+                  <i class="fa-solid fa-floppy-disk me-1"></i> Guardar y Seleccionar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light">
+              <tr>
+                <th>Cédula / RIF</th>
+                <th>Nombre</th>
+                <th>Teléfono</th>
+                <th class="text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="clientes-body">
+              <tr><td colspan="4" class="text-center text-muted py-4">Cargando clientes...</td></tr>
             </tbody>
           </table>
         </div>
